@@ -1,11 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { loadAllData, StockItem, getUniqueDepartments, getUniqueSuppliers, getUniqueUnits, formatCurrency, formatNumber } from '@/lib/csvParser';
-import { FilterBar } from '@/components/FilterBar';
+import { FilterBar, type DaysRange } from '@/components/FilterBar';
 import { StockTable } from '@/components/StockTable';
 import { ItemDrilldown } from '@/components/ItemDrilldown';
-import { Package, TrendingDown, AlertTriangle, BarChart3, Loader2 } from 'lucide-react';
+import { Package, TrendingDown, AlertTriangle, BarChart3, Loader2, ClipboardList } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
+  const navigate = useNavigate();
   const [allItems, setAllItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUnit, setSelectedUnit] = useState('all');
@@ -14,6 +17,8 @@ const Index = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState<StockItem | null>(null);
   const [drilldownOpen, setDrilldownOpen] = useState(false);
+  const [selectedDaysRanges, setSelectedDaysRanges] = useState<DaysRange[]>([]);
+  const [supplierSearch, setSupplierSearch] = useState('');
 
   useEffect(() => {
     loadAllData().then(data => {
@@ -41,12 +46,25 @@ const Index = () => {
         i.codItem.toLowerCase().includes(term)
       );
     }
+    if (selectedDaysRanges.length > 0) {
+      result = result.filter(i => {
+        return selectedDaysRanges.some(range => {
+          switch (range) {
+            case '0-30': return i.diasEstoque >= 0 && i.diasEstoque < 30;
+            case '30-60': return i.diasEstoque >= 30 && i.diasEstoque < 60;
+            case '60-90': return i.diasEstoque >= 60 && i.diasEstoque < 90;
+            case '90-120': return i.diasEstoque >= 90 && i.diasEstoque < 120;
+            case '120+': return i.diasEstoque >= 120;
+            default: return true;
+          }
+        });
+      });
+    }
 
-    // Sort by estoqueCustoMedio descending (value), take top 50
     return result
       .sort((a, b) => b.estoqueCustoMedio - a.estoqueCustoMedio)
       .slice(0, 50);
-  }, [allItems, selectedUnit, selectedDepartment, selectedSupplier, searchTerm]);
+  }, [allItems, selectedUnit, selectedDepartment, selectedSupplier, searchTerm, selectedDaysRanges]);
 
   const units = useMemo(() => getUniqueUnits(allItems), [allItems]);
   const departments = useMemo(() => {
@@ -74,6 +92,14 @@ const Index = () => {
     setSelectedDepartment('all');
     setSelectedSupplier('all');
     setSearchTerm('');
+    setSelectedDaysRanges([]);
+    setSupplierSearch('');
+  };
+
+  const handleDaysRangeToggle = (range: DaysRange) => {
+    setSelectedDaysRanges(prev =>
+      prev.includes(range) ? prev.filter(r => r !== range) : [...prev, range]
+    );
   };
 
   if (loading) {
@@ -97,9 +123,14 @@ const Index = () => {
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Supermercado Tejotão</h1>
               <p className="text-primary-foreground/70 text-xs sm:text-sm mt-0.5">Gestão de Estoques Parados — Plano de Ação</p>
             </div>
-            <div className="hidden sm:flex items-center gap-1.5 bg-primary-foreground/10 rounded-md px-3 py-1.5">
-              <Package className="h-4 w-4" />
-              <span className="text-xs font-medium">{allItems.length.toLocaleString('pt-BR')} itens carregados</span>
+            <div className="hidden sm:flex items-center gap-3">
+              <Button variant="ghost" size="sm" onClick={() => navigate('/planos')} className="text-primary-foreground hover:bg-primary-foreground/10">
+                <ClipboardList className="h-4 w-4 mr-1" /> Planos de Ação
+              </Button>
+              <div className="flex items-center gap-1.5 bg-primary-foreground/10 rounded-md px-3 py-1.5">
+                <Package className="h-4 w-4" />
+                <span className="text-xs font-medium">{allItems.length.toLocaleString('pt-BR')} itens carregados</span>
+              </div>
             </div>
           </div>
         </div>
@@ -123,10 +154,14 @@ const Index = () => {
           selectedDepartment={selectedDepartment}
           selectedSupplier={selectedSupplier}
           searchTerm={searchTerm}
+          selectedDaysRanges={selectedDaysRanges}
+          supplierSearch={supplierSearch}
           onUnitChange={setSelectedUnit}
           onDepartmentChange={setSelectedDepartment}
           onSupplierChange={setSelectedSupplier}
           onSearchChange={setSearchTerm}
+          onDaysRangeToggle={handleDaysRangeToggle}
+          onSupplierSearchChange={setSupplierSearch}
           onClearFilters={clearFilters}
         />
 
