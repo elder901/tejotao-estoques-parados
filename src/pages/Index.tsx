@@ -79,10 +79,14 @@ const Index = () => {
       });
     }
 
-    return result
+    return result;
+  }, [allItems, selectedUnit, selectedDepartment, selectedSupplier, searchTerm, selectedDaysRanges]);
+
+  const top50Items = useMemo(() => {
+    return [...filteredItems]
       .sort((a, b) => b.estoqueCustoMedio - a.estoqueCustoMedio)
       .slice(0, 50);
-  }, [allItems, selectedUnit, selectedDepartment, selectedSupplier, searchTerm, selectedDaysRanges]);
+  }, [filteredItems]);
 
   const units = useMemo(() => getUniqueUnits(allItems), [allItems]);
   const departments = useMemo(() => {
@@ -181,10 +185,10 @@ const Index = () => {
       <main className="max-w-[1400px] mx-auto px-4 py-5 space-y-4">
         {/* KPI Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <KpiCard icon={<DollarSign />} label="Valor Total Top 50" value={formatCurrency(totalEstoque)} />
+          <KpiCard icon={<DollarSign />} label="Valor Total Estoque" value={formatCurrency(totalEstoque)} />
           <KpiCard icon={<TrendingDown />} label="Média Dias Estoque" value={`${formatNumber(avgDias, 0)} dias`} />
           <KpiCard icon={<AlertTriangle />} label="Itens Críticos (90+ dias)" value={String(criticalCount)} danger />
-          <KpiCard icon={<BarChart3 />} label="Itens no Ranking" value={String(filteredItems.length)} />
+          <KpiCard icon={<BarChart3 />} label="Itens no Ranking" value={`${top50Items.length} de ${filteredItems.length}`} />
         </div>
 
         {/* Filters */}
@@ -218,7 +222,7 @@ const Index = () => {
         </div>
 
         {/* Table */}
-        <StockTable items={filteredItems} onSelectItem={handleSelectItem} />
+        <StockTable items={top50Items} onSelectItem={handleSelectItem} />
       </main>
 
       {/* Drilldown */}
