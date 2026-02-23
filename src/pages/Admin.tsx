@@ -48,12 +48,17 @@ const Admin = () => {
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
   const fetchUsers = async () => {
+    setLoadingUsers(true);
     try {
       const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-      if (error) console.error('Error fetching users:', error);
+      if (error) {
+        console.error('Error fetching users:', error);
+        toast.error('Erro ao carregar usuários: ' + error.message);
+      }
       if (data) setUsers(data as UserProfile[]);
     } catch (e) {
       console.error('Exception fetching users:', e);
+      toast.error('Erro ao carregar usuários');
     } finally {
       setLoadingUsers(false);
     }
