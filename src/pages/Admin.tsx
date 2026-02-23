@@ -48,9 +48,15 @@ const Admin = () => {
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
   const fetchUsers = async () => {
-    const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-    if (data) setUsers(data as UserProfile[]);
-    setLoadingUsers(false);
+    try {
+      const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+      if (error) console.error('Error fetching users:', error);
+      if (data) setUsers(data as UserProfile[]);
+    } catch (e) {
+      console.error('Exception fetching users:', e);
+    } finally {
+      setLoadingUsers(false);
+    }
   };
 
   const fetchUploads = async () => {
@@ -124,21 +130,25 @@ const Admin = () => {
     }
 
     setUploading(true);
+    let successCount = 0;
     try {
       for (const [unitCode, file] of filesToUpload) {
         if (!file) continue;
         const timestamp = Date.now();
         const storagePath = `${unitCode}/${timestamp}_${file.name}`;
 
+        console.log(`Uploading ${file.name} to ${storagePath}...`);
         const { error: uploadError } = await supabase.storage
           .from('csv-files')
           .upload(storagePath, file);
 
         if (uploadError) {
+          console.error('Storage upload error:', uploadError);
           toast.error(`Erro no upload ${file.name}: ${uploadError.message}`);
           continue;
         }
 
+        console.log(`Inserting record for ${file.name}...`);
         const { error: insertError } = await supabase
           .from('csv_uploads')
           .insert({
@@ -150,19 +160,24 @@ const Admin = () => {
           });
 
         if (insertError) {
+          console.error('Insert error:', insertError);
           toast.error(`Erro ao registrar ${file.name}: ${insertError.message}`);
+        } else {
+          successCount++;
         }
       }
 
-      toast.success('Arquivos enviados com sucesso! Recarregue o dashboard para ver os novos dados.');
-      setCsvFiles({});
-      setPeriodoRef('');
-      // Reset file inputs
-      Object.values(fileInputRefs.current).forEach(input => {
-        if (input) input.value = '';
-      });
-      fetchUploads();
+      if (successCount > 0) {
+        toast.success(`${successCount} arquivo(s) enviado(s) com sucesso!`);
+        setCsvFiles({});
+        setPeriodoRef('');
+        Object.values(fileInputRefs.current).forEach(input => {
+          if (input) input.value = '';
+        });
+        fetchUploads();
+      }
     } catch (err: any) {
+      console.error('Upload exception:', err);
       toast.error(err.message || 'Erro no upload');
     }
     setUploading(false);
