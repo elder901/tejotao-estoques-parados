@@ -94,7 +94,10 @@ function parseCSVText(text: string, unitCode: string): StockItem[] {
 async function loadFromStorage(storagePath: string, unitCode: string): Promise<StockItem[]> {
   try {
     const { data } = supabase.storage.from('csv-files').getPublicUrl(storagePath);
-    const response = await fetch(data.publicUrl);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const response = await fetch(data.publicUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
     if (!response.ok) {
       console.warn(`Failed to load ${storagePath}: ${response.status}`);
       return [];
@@ -103,8 +106,12 @@ async function loadFromStorage(storagePath: string, unitCode: string): Promise<S
     const decoder = new TextDecoder('windows-1252');
     const text = decoder.decode(buffer);
     return parseCSVText(text, unitCode);
-  } catch (e) {
-    console.warn(`Error loading from storage ${storagePath}:`, e);
+  } catch (e: any) {
+    if (e.name === 'AbortError') {
+      console.warn(`Timeout loading ${storagePath}`);
+    } else {
+      console.warn(`Error loading from storage ${storagePath}:`, e);
+    }
     return [];
   }
 }
@@ -162,24 +169,30 @@ export async function loadAllData(): Promise<StockItem[]> {
         }
       }
 
+      console.log('Loading from storage, units:', Array.from(latestByUnit.keys()));
       const promises = Array.from(latestByUnit.values()).map(u =>
         loadFromStorage(u.storage_path, u.unit_code)
       );
       const results = await Promise.all(promises);
       const allItems = results.flat();
+      console.log(`Loaded ${allItems.length} items from storage`);
       if (allItems.length > 0) return allItems;
+      console.warn('No items from storage, falling back to static files');
     }
   } catch (e) {
     console.warn('Error loading from storage, falling back to static files:', e);
   }
 
   // Fallback to static files
+  console.log('Loading from static files...');
   const [store1, store2, store3] = await Promise.all([
     loadFromPublic('Gloja1F.csv', '001'),
     loadFromPublic('Gloja2F.csv', '002'),
     loadFromPublic('Gloja3F.csv', '003'),
   ]);
-  return [...store1, ...store2, ...store3];
+  const total = [...store1, ...store2, ...store3];
+  console.log(`Loaded ${total.length} items from static files`);
+  return total;
 }
 
 export function getUniqueDepartments(items: StockItem[]): string[] {
