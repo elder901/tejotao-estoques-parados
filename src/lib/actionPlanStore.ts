@@ -1,49 +1,94 @@
+import { supabase } from '@/integrations/supabase/client';
+
 export interface ActionPlan {
   id: string;
-  codItem: string;
-  codUnidade: string;
+  cod_item: string;
+  cod_unidade: string;
+  user_id: string;
   responsavel: string;
   estrategia: string;
-  prazo: string;
+  prazo: string | null;
   status: 'pendente' | 'em_andamento' | 'concluido';
   observacoes: string;
-  criadoEm: string;
-  atualizadoEm: string;
+  created_at: string;
+  updated_at: string;
+  // joined
+  user_name?: string;
 }
 
-const STORAGE_KEY = 'tejotao_action_plans';
+export async function getActionPlans(): Promise<ActionPlan[]> {
+  const { data, error } = await supabase
+    .from('action_plans')
+    .select('*, profiles!action_plans_user_id_fkey(name)')
+    .order('updated_at', { ascending: false });
 
-export function getActionPlans(): ActionPlan[] {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
+  if (error || !data) return [];
+
+  return data.map((d: any) => ({
+    ...d,
+    user_name: d.profiles?.name || 'Desconhecido',
+  }));
+}
+
+export async function getActionPlan(codItem: string, codUnidade: string): Promise<ActionPlan | undefined> {
+  const { data } = await supabase
+    .from('action_plans')
+    .select('*, profiles!action_plans_user_id_fkey(name)')
+    .eq('cod_item', codItem)
+    .eq('cod_unidade', codUnidade)
+    .maybeSingle();
+
+  if (!data) return undefined;
+  return { ...data, user_name: (data as any).profiles?.name || 'Desconhecido' } as ActionPlan;
+}
+
+export async function saveActionPlan(plan: {
+  cod_item: string;
+  cod_unidade: string;
+  responsavel: string;
+  estrategia: string;
+  prazo: string | null;
+  status: string;
+  observacoes: string;
+}): Promise<ActionPlan | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  // Check if exists
+  const existing = await getActionPlan(plan.cod_item, plan.cod_unidade);
+
+  if (existing) {
+    const { data, error } = await supabase
+      .from('action_plans')
+      .update({
+        responsavel: plan.responsavel,
+        estrategia: plan.estrategia,
+        prazo: plan.prazo || null,
+        status: plan.status,
+        observacoes: plan.observacoes,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existing.id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data as ActionPlan;
   }
-}
 
-export function getActionPlan(codItem: string, codUnidade: string): ActionPlan | undefined {
-  return getActionPlans().find(p => p.codItem === codItem && p.codUnidade === codUnidade);
-}
-
-export function saveActionPlan(plan: Omit<ActionPlan, 'id' | 'criadoEm' | 'atualizadoEm'>): ActionPlan {
-  const plans = getActionPlans();
-  const existing = plans.findIndex(p => p.codItem === plan.codItem && p.codUnidade === plan.codUnidade);
-  const now = new Date().toISOString();
-
-  if (existing >= 0) {
-    plans[existing] = { ...plans[existing], ...plan, atualizadoEm: now };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
-    return plans[existing];
-  }
-
-  const newPlan: ActionPlan = {
-    ...plan,
-    id: crypto.randomUUID(),
-    criadoEm: now,
-    atualizadoEm: now,
-  };
-  plans.push(newPlan);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
-  return newPlan;
+  const { data, error } = await supabase
+    .from('action_plans')
+    .insert({
+      cod_item: plan.cod_item,
+      cod_unidade: plan.cod_unidade,
+      user_id: user.id,
+      responsavel: plan.responsavel,
+      estrategia: plan.estrategia,
+      prazo: plan.prazo || null,
+      status: plan.status,
+      observacoes: plan.observacoes,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as ActionPlan;
 }

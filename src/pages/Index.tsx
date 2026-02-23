@@ -3,11 +3,13 @@ import { loadAllData, StockItem, getUniqueDepartments, getUniqueSuppliers, getUn
 import { FilterBar, type DaysRange } from '@/components/FilterBar';
 import { StockTable } from '@/components/StockTable';
 import { ItemDrilldown } from '@/components/ItemDrilldown';
-import { Package, TrendingDown, AlertTriangle, BarChart3, Loader2, ClipboardList } from 'lucide-react';
+import { Package, TrendingDown, AlertTriangle, BarChart3, Loader2, ClipboardList, LogOut, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 
 const Index = () => {
+  const { profile, signOut } = useAuth();
   const navigate = useNavigate();
   const [allItems, setAllItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,12 +126,20 @@ const Index = () => {
               <p className="text-primary-foreground/70 text-xs sm:text-sm mt-0.5">Gestão de Estoques Parados — Plano de Ação</p>
             </div>
             <div className="hidden sm:flex items-center gap-3">
+              {profile?.is_admin && (
+                <Button variant="ghost" size="sm" onClick={() => navigate('/admin')} className="text-primary-foreground hover:bg-primary-foreground/10">
+                  <Shield className="h-4 w-4 mr-1" /> Admin
+                </Button>
+              )}
               <Button variant="ghost" size="sm" onClick={() => navigate('/planos')} className="text-primary-foreground hover:bg-primary-foreground/10">
                 <ClipboardList className="h-4 w-4 mr-1" /> Planos de Ação
               </Button>
+              <Button variant="ghost" size="sm" onClick={signOut} className="text-primary-foreground hover:bg-primary-foreground/10">
+                <LogOut className="h-4 w-4 mr-1" /> Sair
+              </Button>
               <div className="flex items-center gap-1.5 bg-primary-foreground/10 rounded-md px-3 py-1.5">
                 <Package className="h-4 w-4" />
-                <span className="text-xs font-medium">{allItems.length.toLocaleString('pt-BR')} itens carregados</span>
+                <span className="text-xs font-medium">{profile?.name || 'Usuário'}</span>
               </div>
             </div>
           </div>

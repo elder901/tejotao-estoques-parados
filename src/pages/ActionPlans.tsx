@@ -4,10 +4,10 @@ import { getActionPlans, type ActionPlan } from '@/lib/actionPlanStore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, CheckCircle2, Clock, AlertTriangle, TrendingDown } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock, AlertTriangle, TrendingDown, Loader2, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 function DollarSign() {
   return (
@@ -19,24 +19,25 @@ function DollarSign() {
 
 const ActionPlans = () => {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [allItems, setAllItems] = useState<StockItem[]>([]);
+  const [plans, setPlans] = useState<ActionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterUnit, setFilterUnit] = useState('all');
   const [filterDepartment, setFilterDepartment] = useState('all');
 
   useEffect(() => {
-    loadAllData().then(data => {
-      setAllItems(data);
+    Promise.all([loadAllData(), getActionPlans()]).then(([items, plansData]) => {
+      setAllItems(items);
+      setPlans(plansData);
       setLoading(false);
     });
   }, []);
 
-  const plans = useMemo(() => getActionPlans(), [allItems]);
-
   const enrichedPlans = useMemo(() => {
     return plans.map(plan => {
-      const item = allItems.find(i => i.codItem === plan.codItem && i.codUnidade === plan.codUnidade);
+      const item = allItems.find(i => i.codItem === plan.cod_item && i.codUnidade === plan.cod_unidade);
       return { plan, item };
     }).filter(e => e.item);
   }, [plans, allItems]);
@@ -57,7 +58,7 @@ const ActionPlans = () => {
 
   const totalComPlano = enrichedPlans.reduce((s, e) => s + (e.item?.estoqueCustoMedio || 0), 0);
   const totalSemPlano = useMemo(() => {
-    const planKeys = new Set(plans.map(p => `${p.codItem}-${p.codUnidade}`));
+    const planKeys = new Set(plans.map(p => `${p.cod_item}-${p.cod_unidade}`));
     return allItems.filter(i => !planKeys.has(`${i.codItem}-${i.codUnidade}`)).reduce((s, i) => s + i.estoqueCustoMedio, 0);
   }, [allItems, plans]);
 
@@ -66,6 +67,19 @@ const ActionPlans = () => {
     em_andamento: enrichedPlans.filter(e => e.plan.status === 'em_andamento').length,
     concluido: enrichedPlans.filter(e => e.plan.status === 'concluido').length,
   }), [enrichedPlans]);
+
+  // Ranking by user
+  const userRanking = useMemo(() => {
+    const map = new Map<string, { name: string; count: number; value: number }>();
+    enrichedPlans.forEach(({ plan, item }) => {
+      const name = plan.user_name || 'Desconhecido';
+      const existing = map.get(name) || { name, count: 0, value: 0 };
+      existing.count += 1;
+      existing.value += item?.estoqueCustoMedio || 0;
+      map.set(name, existing);
+    });
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
+  }, [enrichedPlans]);
 
   const filteredValue = filtered.reduce((s, e) => s + (e.item?.estoqueCustoMedio || 0), 0);
 
@@ -80,10 +94,7 @@ const ActionPlans = () => {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Carregando dados...</p>
-        </div>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -115,6 +126,25 @@ const ActionPlans = () => {
           <KpiCard icon={<Clock />} label="Em Andamento" value={String(statusCounts.em_andamento)} />
           <KpiCard icon={<CheckCircle2 />} label="Concluídos" value={String(statusCounts.concluido)} />
         </div>
+
+        {/* User Ranking */}
+        {userRanking.length > 0 && (
+          <div className="bg-card border rounded-lg p-4">
+            <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+              <Users className="h-4 w-4 text-accent" /> Ranking por Comprador
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              {userRanking.map((u, i) => (
+                <div key={u.name} className="bg-primary/5 rounded-md p-3 text-center">
+                  <div className="text-lg font-bold text-primary">#{i + 1}</div>
+                  <div className="text-sm font-semibold text-foreground truncate">{u.name}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{u.count} plano(s)</div>
+                  <div className="text-xs font-medium text-accent">{formatCurrency(u.value)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Filters */}
         <div className="bg-card rounded-lg border p-4">
@@ -154,11 +184,8 @@ const ActionPlans = () => {
           </div>
         </div>
 
-        {/* Summary */}
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-foreground">
-            {filtered.length} plano(s) — Valor total: {formatCurrency(filteredValue)}
-          </h2>
+          <h2 className="text-sm font-bold text-foreground">{filtered.length} plano(s) — Valor total: {formatCurrency(filteredValue)}</h2>
         </div>
 
         {/* Table */}
@@ -171,9 +198,9 @@ const ActionPlans = () => {
                   <TableHead className="text-xs font-bold min-w-[200px]">Descrição</TableHead>
                   <TableHead className="text-xs font-bold">Unidade</TableHead>
                   <TableHead className="text-xs font-bold">Departamento</TableHead>
-                  <TableHead className="text-xs font-bold">Fornecedor</TableHead>
                   <TableHead className="text-xs font-bold text-right">Estoque (R$)</TableHead>
                   <TableHead className="text-xs font-bold text-center">Dias</TableHead>
+                  <TableHead className="text-xs font-bold">Criado por</TableHead>
                   <TableHead className="text-xs font-bold">Responsável</TableHead>
                   <TableHead className="text-xs font-bold">Estratégia</TableHead>
                   <TableHead className="text-xs font-bold text-center">Status</TableHead>
@@ -183,13 +210,13 @@ const ActionPlans = () => {
               <TableBody>
                 {filtered.map(({ plan, item }) => (
                   <TableRow key={plan.id}>
-                    <TableCell className="text-xs font-mono">{plan.codItem}</TableCell>
+                    <TableCell className="text-xs font-mono">{plan.cod_item}</TableCell>
                     <TableCell className="text-xs font-medium">{item!.descricao}</TableCell>
                     <TableCell className="text-xs">{item!.codUnidade}</TableCell>
                     <TableCell className="text-xs">{item!.departamento}</TableCell>
-                    <TableCell className="text-xs max-w-[150px] truncate">{item!.fornecedor}</TableCell>
                     <TableCell className="text-xs text-right font-semibold">{formatCurrency(item!.estoqueCustoMedio)}</TableCell>
                     <TableCell className="text-xs text-center">{formatNumber(item!.diasEstoque, 0)}</TableCell>
+                    <TableCell className="text-xs font-medium text-primary">{plan.user_name}</TableCell>
                     <TableCell className="text-xs">{plan.responsavel}</TableCell>
                     <TableCell className="text-xs max-w-[150px] truncate">{plan.estrategia}</TableCell>
                     <TableCell className="text-center">{statusBadge(plan.status)}</TableCell>
@@ -219,9 +246,7 @@ function KpiCard({ icon, label, value, danger }: { icon: React.ReactNode; label:
         <span className="text-accent">{icon}</span>
         <span className="text-xs font-medium">{label}</span>
       </div>
-      <div className={`text-lg sm:text-xl font-bold ${danger ? 'text-destructive' : 'text-foreground'}`}>
-        {value}
-      </div>
+      <div className={`text-lg sm:text-xl font-bold ${danger ? 'text-destructive' : 'text-foreground'}`}>{value}</div>
     </div>
   );
 }
