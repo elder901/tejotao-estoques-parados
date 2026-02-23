@@ -1,3 +1,5 @@
+import { supabase } from '@/integrations/supabase/client';
+
 export interface StockItem {
   diasEstoque: number;
   grupo: string;
@@ -20,6 +22,11 @@ export interface StockItem {
   vdMedia30: number;
   vdMedia90: number;
   vdMedia365: number;
+}
+
+export interface CsvUploadInfo {
+  periodo_referencia: string;
+  uploaded_at: string;
 }
 
 const UNIT_NAMES: Record<string, string> = {
@@ -70,15 +77,9 @@ function parseLine(line: string, unitCode: string): StockItem | null {
   };
 }
 
-export async function loadStoreData(file: string, unitCode: string): Promise<StockItem[]> {
-  const response = await fetch(`/data/${file}`);
-  const buffer = await response.arrayBuffer();
-  const decoder = new TextDecoder('windows-1252');
-  const text = decoder.decode(buffer);
+function parseCSVText(text: string, unitCode: string): StockItem[] {
   const lines = text.split('\n');
   const items: StockItem[] = [];
-
-  // skip header lines (first ~8 lines)
   for (let i = 8; i < lines.length; i++) {
     const line = lines[i];
     if (!line.trim()) continue;
@@ -87,15 +88,64 @@ export async function loadStoreData(file: string, unitCode: string): Promise<Sto
       items.push(item);
     }
   }
-
   return items;
 }
 
+async function loadFromStorage(storagePath: string, unitCode: string): Promise<StockItem[]> {
+  const { data } = supabase.storage.from('csv-files').getPublicUrl(storagePath);
+  const response = await fetch(data.publicUrl);
+  const buffer = await response.arrayBuffer();
+  const decoder = new TextDecoder('windows-1252');
+  const text = decoder.decode(buffer);
+  return parseCSVText(text, unitCode);
+}
+
+async function loadFromPublic(file: string, unitCode: string): Promise<StockItem[]> {
+  const response = await fetch(`/data/${file}`);
+  const buffer = await response.arrayBuffer();
+  const decoder = new TextDecoder('windows-1252');
+  const text = decoder.decode(buffer);
+  return parseCSVText(text, unitCode);
+}
+
+export async function getLatestUploadInfo(): Promise<CsvUploadInfo | null> {
+  const { data } = await supabase
+    .from('csv_uploads')
+    .select('periodo_referencia, uploaded_at')
+    .order('uploaded_at', { ascending: false })
+    .limit(1);
+  if (data && data.length > 0) return data[0] as CsvUploadInfo;
+  return null;
+}
+
 export async function loadAllData(): Promise<StockItem[]> {
+  // Try loading from storage first (latest uploads per unit)
+  const { data: uploads } = await supabase
+    .from('csv_uploads')
+    .select('*')
+    .order('uploaded_at', { ascending: false });
+
+  if (uploads && uploads.length > 0) {
+    // Get latest upload per unit_code
+    const latestByUnit = new Map<string, any>();
+    for (const u of uploads) {
+      if (!latestByUnit.has(u.unit_code)) {
+        latestByUnit.set(u.unit_code, u);
+      }
+    }
+
+    const promises = Array.from(latestByUnit.values()).map(u =>
+      loadFromStorage(u.storage_path, u.unit_code)
+    );
+    const results = await Promise.all(promises);
+    return results.flat();
+  }
+
+  // Fallback to static files
   const [store1, store2, store3] = await Promise.all([
-    loadStoreData('Gloja1F.csv', '001'),
-    loadStoreData('Gloja2F.csv', '002'),
-    loadStoreData('Gloja3F.csv', '003'),
+    loadFromPublic('Gloja1F.csv', '001'),
+    loadFromPublic('Gloja2F.csv', '002'),
+    loadFromPublic('Gloja3F.csv', '003'),
   ]);
   return [...store1, ...store2, ...store3];
 }

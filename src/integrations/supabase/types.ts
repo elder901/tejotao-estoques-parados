@@ -56,6 +56,36 @@ export type Database = {
         }
         Relationships: []
       }
+      csv_uploads: {
+        Row: {
+          file_name: string
+          id: string
+          periodo_referencia: string
+          storage_path: string
+          unit_code: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          file_name: string
+          id?: string
+          periodo_referencia: string
+          storage_path: string
+          unit_code: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          file_name?: string
+          id?: string
+          periodo_referencia?: string
+          storage_path?: string
+          unit_code?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
