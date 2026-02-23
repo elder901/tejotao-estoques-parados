@@ -54,10 +54,37 @@ export async function saveActionPlan(plan: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
-  // Use upsert to handle both insert and update in one call
+  // Check if a plan already exists for this item+unit
+  const { data: existing } = await supabase
+    .from('action_plans')
+    .select('id')
+    .eq('cod_item', plan.cod_item)
+    .eq('cod_unidade', plan.cod_unidade)
+    .maybeSingle();
+
+  if (existing) {
+    // Update existing plan
+    const { data, error } = await supabase
+      .from('action_plans')
+      .update({
+        responsavel: plan.responsavel,
+        estrategia: plan.estrategia,
+        prazo: plan.prazo || null,
+        status: plan.status,
+        observacoes: plan.observacoes,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existing.id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data as ActionPlan;
+  }
+
+  // Insert new plan
   const { data, error } = await supabase
     .from('action_plans')
-    .upsert({
+    .insert({
       cod_item: plan.cod_item,
       cod_unidade: plan.cod_unidade,
       user_id: user.id,
@@ -66,13 +93,9 @@ export async function saveActionPlan(plan: {
       prazo: plan.prazo || null,
       status: plan.status,
       observacoes: plan.observacoes,
-      updated_at: new Date().toISOString(),
-    }, {
-      onConflict: 'cod_item,cod_unidade',
     })
     .select()
     .single();
-
   if (error) throw error;
   return data as ActionPlan;
 }
