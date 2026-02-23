@@ -14,7 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      action_plans: {
+        Row: {
+          cod_item: string
+          cod_unidade: string
+          created_at: string
+          estrategia: string
+          id: string
+          observacoes: string | null
+          prazo: string | null
+          responsavel: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cod_item: string
+          cod_unidade: string
+          created_at?: string
+          estrategia: string
+          id?: string
+          observacoes?: string | null
+          prazo?: string | null
+          responsavel: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cod_item?: string
+          cod_unidade?: string
+          created_at?: string
+          estrategia?: string
+          id?: string
+          observacoes?: string | null
+          prazo?: string | null
+          responsavel?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          is_admin: boolean
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          is_admin?: boolean
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_admin?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
