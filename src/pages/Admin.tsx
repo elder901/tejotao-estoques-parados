@@ -137,14 +137,27 @@ const Admin = () => {
         const timestamp = Date.now();
         const storagePath = `${unitCode}/${timestamp}_${file.name}`;
 
-        console.log(`Uploading ${file.name} to ${storagePath}...`);
-        const { error: uploadError } = await supabase.storage
-          .from('csv-files')
-          .upload(storagePath, file);
+        console.log(`Uploading ${file.name} (${file.size} bytes, type: ${file.type}) to ${storagePath}...`);
+        toast.info(`Enviando ${file.name}...`);
+        
+        try {
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('csv-files')
+            .upload(storagePath, file, {
+              cacheControl: '3600',
+              upsert: false,
+            });
 
-        if (uploadError) {
-          console.error('Storage upload error:', uploadError);
-          toast.error(`Erro no upload ${file.name}: ${uploadError.message}`);
+          console.log('Upload result:', { uploadData, uploadError });
+
+          if (uploadError) {
+            console.error('Storage upload error:', JSON.stringify(uploadError));
+            toast.error(`Erro no upload ${file.name}: ${uploadError.message}`);
+            continue;
+          }
+        } catch (uploadEx: any) {
+          console.error('Upload exception:', uploadEx);
+          toast.error(`Exceção no upload ${file.name}: ${uploadEx.message}`);
           continue;
         }
 
