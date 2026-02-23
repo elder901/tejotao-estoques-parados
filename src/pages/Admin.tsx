@@ -132,36 +132,62 @@ const Admin = () => {
     setUploading(true);
     let successCount = 0;
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Sessão expirada. Faça login novamente.');
+        setUploading(false);
+        return;
+      }
+
       for (const [unitCode, file] of filesToUpload) {
         if (!file) continue;
         const timestamp = Date.now();
         const storagePath = `${unitCode}/${timestamp}_${file.name}`;
 
-        console.log(`Uploading ${file.name} (${file.size} bytes, type: ${file.type}) to ${storagePath}...`);
+        console.log(`Uploading ${file.name} (${file.size} bytes) to ${storagePath}...`);
         toast.info(`Enviando ${file.name}...`);
         
         try {
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('csv-files')
-            .upload(storagePath, file, {
-              cacheControl: '3600',
-              upsert: false,
-            });
+          // Use fetch directly for better error visibility
+          const uploadUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/csv-files/${encodeURIComponent(storagePath)}`;
+          console.log('Upload URL:', uploadUrl);
+          
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-          console.log('Upload result:', { uploadData, uploadError });
+          const uploadResponse = await fetch(uploadUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              'x-upsert': 'false',
+            },
+            body: file,
+            signal: controller.signal,
+          });
 
-          if (uploadError) {
-            console.error('Storage upload error:', JSON.stringify(uploadError));
-            toast.error(`Erro no upload ${file.name}: ${uploadError.message}`);
+          clearTimeout(timeoutId);
+          
+          console.log('Upload response status:', uploadResponse.status);
+          
+          if (!uploadResponse.ok) {
+            const errorBody = await uploadResponse.text();
+            console.error('Storage upload error:', uploadResponse.status, errorBody);
+            toast.error(`Erro no upload ${file.name}: ${uploadResponse.status} - ${errorBody}`);
             continue;
           }
+
+          console.log(`Upload OK. Inserting record for ${file.name}...`);
         } catch (uploadEx: any) {
           console.error('Upload exception:', uploadEx);
-          toast.error(`Exceção no upload ${file.name}: ${uploadEx.message}`);
+          if (uploadEx.name === 'AbortError') {
+            toast.error(`Timeout: upload de ${file.name} demorou demais`);
+          } else {
+            toast.error(`Erro: ${uploadEx.message}`);
+          }
           continue;
         }
 
-        console.log(`Inserting record for ${file.name}...`);
         const { error: insertError } = await supabase
           .from('csv_uploads')
           .insert({
