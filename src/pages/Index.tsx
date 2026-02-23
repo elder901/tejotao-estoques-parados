@@ -27,7 +27,7 @@ const Index = () => {
     const timeout = setTimeout(() => {
       console.warn('Loading timeout reached, forcing render');
       setLoading(false);
-    }, 15000);
+    }, 10000);
 
     Promise.all([loadAllData(), getLatestUploadInfo()])
       .then(([data, info]) => {
