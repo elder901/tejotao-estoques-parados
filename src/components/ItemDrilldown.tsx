@@ -1,19 +1,21 @@
 import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { StockItem, formatCurrency, formatNumber } from '@/lib/csvParser';
-import { getActionPlan, saveActionPlan, type ActionPlan } from '@/lib/actionPlanStore';
+import { getActionPlan, saveActionPlan, deleteActionPlan, type ActionPlan } from '@/lib/actionPlanStore';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Save, Package, Target, BarChart3, User } from 'lucide-react';
+import { Save, Package, Target, BarChart3, User, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ItemDrilldownProps {
   item: StockItem | null;
   open: boolean;
   onClose: () => void;
+  onPlanChanged?: () => void;
 }
 
 const ESTRATEGIAS = [
@@ -30,13 +32,16 @@ const ESTRATEGIAS = [
   'Outro',
 ];
 
-export function ItemDrilldown({ item, open, onClose }: ItemDrilldownProps) {
+export function ItemDrilldown({ item, open, onClose, onPlanChanged }: ItemDrilldownProps) {
+  const { profile } = useAuth();
   const [responsavel, setResponsavel] = useState('');
   const [estrategia, setEstrategia] = useState('');
   const [prazo, setPrazo] = useState('');
   const [status, setStatus] = useState<ActionPlan['status']>('pendente');
   const [observacoes, setObservacoes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [hasExistingPlan, setHasExistingPlan] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (item) {
@@ -47,12 +52,14 @@ export function ItemDrilldown({ item, open, onClose }: ItemDrilldownProps) {
           setPrazo(plan.prazo || '');
           setStatus(plan.status);
           setObservacoes(plan.observacoes);
+          setHasExistingPlan(true);
         } else {
           setResponsavel('');
           setEstrategia('');
           setPrazo('');
           setStatus('pendente');
           setObservacoes('');
+          setHasExistingPlan(false);
         }
       });
     }
@@ -75,11 +82,27 @@ export function ItemDrilldown({ item, open, onClose }: ItemDrilldownProps) {
         observacoes: observacoes.trim(),
       });
       toast.success('Plano de ação salvo com sucesso!');
+      onPlanChanged?.();
       onClose();
     } catch (err: any) {
       toast.error(err.message || 'Erro ao salvar');
     }
     setSaving(false);
+  };
+
+  const handleDelete = async () => {
+    if (!item) return;
+    if (!confirm('Tem certeza que deseja excluir este plano de ação?')) return;
+    setDeleting(true);
+    try {
+      await deleteActionPlan(item.codItem, item.codUnidade);
+      toast.success('Plano de ação excluído!');
+      onPlanChanged?.();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao excluir');
+    }
+    setDeleting(false);
   };
 
   return (
@@ -154,6 +177,12 @@ export function ItemDrilldown({ item, open, onClose }: ItemDrilldownProps) {
                 <Save className="h-4 w-4 mr-2" />
                 {saving ? 'Salvando...' : 'Salvar Plano de Ação'}
               </Button>
+              {hasExistingPlan && profile?.is_admin && (
+                <Button variant="destructive" onClick={handleDelete} className="w-full" disabled={deleting}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {deleting ? 'Excluindo...' : 'Excluir Plano de Ação'}
+                </Button>
+              )}
             </div>
           </div>
         </div>
