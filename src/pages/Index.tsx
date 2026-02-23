@@ -24,11 +24,16 @@ const Index = () => {
   const [uploadInfo, setUploadInfo] = useState<CsvUploadInfo | null>(null);
 
   useEffect(() => {
-    Promise.all([loadAllData(), getLatestUploadInfo()]).then(([data, info]) => {
-      setAllItems(data);
-      setUploadInfo(info);
-      setLoading(false);
-    });
+    Promise.all([loadAllData(), getLatestUploadInfo()])
+      .then(([data, info]) => {
+        setAllItems(data);
+        setUploadInfo(info);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Error loading data:', err);
+        setLoading(false);
+      });
   }, []);
 
   const filteredItems = useMemo(() => {

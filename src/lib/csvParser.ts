@@ -92,20 +92,38 @@ function parseCSVText(text: string, unitCode: string): StockItem[] {
 }
 
 async function loadFromStorage(storagePath: string, unitCode: string): Promise<StockItem[]> {
-  const { data } = supabase.storage.from('csv-files').getPublicUrl(storagePath);
-  const response = await fetch(data.publicUrl);
-  const buffer = await response.arrayBuffer();
-  const decoder = new TextDecoder('windows-1252');
-  const text = decoder.decode(buffer);
-  return parseCSVText(text, unitCode);
+  try {
+    const { data } = supabase.storage.from('csv-files').getPublicUrl(storagePath);
+    const response = await fetch(data.publicUrl);
+    if (!response.ok) {
+      console.warn(`Failed to load ${storagePath}: ${response.status}`);
+      return [];
+    }
+    const buffer = await response.arrayBuffer();
+    const decoder = new TextDecoder('windows-1252');
+    const text = decoder.decode(buffer);
+    return parseCSVText(text, unitCode);
+  } catch (e) {
+    console.warn(`Error loading from storage ${storagePath}:`, e);
+    return [];
+  }
 }
 
 async function loadFromPublic(file: string, unitCode: string): Promise<StockItem[]> {
-  const response = await fetch(`/data/${file}`);
-  const buffer = await response.arrayBuffer();
-  const decoder = new TextDecoder('windows-1252');
-  const text = decoder.decode(buffer);
-  return parseCSVText(text, unitCode);
+  try {
+    const response = await fetch(`/data/${file}`);
+    if (!response.ok) {
+      console.warn(`Failed to load /data/${file}: ${response.status}`);
+      return [];
+    }
+    const buffer = await response.arrayBuffer();
+    const decoder = new TextDecoder('windows-1252');
+    const text = decoder.decode(buffer);
+    return parseCSVText(text, unitCode);
+  } catch (e) {
+    console.warn(`Error loading /data/${file}:`, e);
+    return [];
+  }
 }
 
 export async function getLatestUploadInfo(): Promise<CsvUploadInfo | null> {
@@ -119,26 +137,31 @@ export async function getLatestUploadInfo(): Promise<CsvUploadInfo | null> {
 }
 
 export async function loadAllData(): Promise<StockItem[]> {
-  // Try loading from storage first (latest uploads per unit)
-  const { data: uploads } = await supabase
-    .from('csv_uploads')
-    .select('*')
-    .order('uploaded_at', { ascending: false });
+  try {
+    // Try loading from storage first (latest uploads per unit)
+    const { data: uploads, error } = await supabase
+      .from('csv_uploads')
+      .select('*')
+      .order('uploaded_at', { ascending: false });
 
-  if (uploads && uploads.length > 0) {
-    // Get latest upload per unit_code
-    const latestByUnit = new Map<string, any>();
-    for (const u of uploads) {
-      if (!latestByUnit.has(u.unit_code)) {
-        latestByUnit.set(u.unit_code, u);
+    if (!error && uploads && uploads.length > 0) {
+      // Get latest upload per unit_code
+      const latestByUnit = new Map<string, any>();
+      for (const u of uploads) {
+        if (!latestByUnit.has(u.unit_code)) {
+          latestByUnit.set(u.unit_code, u);
+        }
       }
-    }
 
-    const promises = Array.from(latestByUnit.values()).map(u =>
-      loadFromStorage(u.storage_path, u.unit_code)
-    );
-    const results = await Promise.all(promises);
-    return results.flat();
+      const promises = Array.from(latestByUnit.values()).map(u =>
+        loadFromStorage(u.storage_path, u.unit_code)
+      );
+      const results = await Promise.all(promises);
+      const allItems = results.flat();
+      if (allItems.length > 0) return allItems;
+    }
+  } catch (e) {
+    console.warn('Error loading from storage, falling back to static files:', e);
   }
 
   // Fallback to static files
