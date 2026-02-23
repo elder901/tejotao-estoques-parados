@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { loadAllData, StockItem, getUniqueDepartments, getUniqueSuppliers, getUniqueUnits, formatCurrency, formatNumber } from '@/lib/csvParser';
+import { loadAllData, StockItem, getUniqueDepartments, getUniqueSuppliers, getUniqueUnits, formatCurrency, formatNumber, getLatestUploadInfo, type CsvUploadInfo } from '@/lib/csvParser';
 import { FilterBar, type DaysRange } from '@/components/FilterBar';
 import { StockTable } from '@/components/StockTable';
 import { ItemDrilldown } from '@/components/ItemDrilldown';
-import { Package, TrendingDown, AlertTriangle, BarChart3, Loader2, ClipboardList, LogOut, Shield } from 'lucide-react';
+import { Package, TrendingDown, AlertTriangle, BarChart3, Loader2, ClipboardList, LogOut, Shield, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -21,10 +21,12 @@ const Index = () => {
   const [drilldownOpen, setDrilldownOpen] = useState(false);
   const [selectedDaysRanges, setSelectedDaysRanges] = useState<DaysRange[]>([]);
   const [supplierSearch, setSupplierSearch] = useState('');
+  const [uploadInfo, setUploadInfo] = useState<CsvUploadInfo | null>(null);
 
   useEffect(() => {
-    loadAllData().then(data => {
+    Promise.all([loadAllData(), getLatestUploadInfo()]).then(([data, info]) => {
       setAllItems(data);
+      setUploadInfo(info);
       setLoading(false);
     });
   }, []);
@@ -123,7 +125,15 @@ const Index = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Supermercado Tejotão</h1>
-              <p className="text-primary-foreground/70 text-xs sm:text-sm mt-0.5">Gestão de Estoques Parados — Plano de Ação</p>
+              <p className="text-primary-foreground/70 text-xs sm:text-sm mt-0.5 flex items-center gap-1">
+                Gestão de Estoques Parados — Plano de Ação
+                {uploadInfo && (
+                  <span className="ml-2 bg-primary-foreground/15 rounded px-2 py-0.5 text-xs font-medium inline-flex items-center gap-1">
+                    <CalendarDays className="h-3 w-3" />
+                    Período: {uploadInfo.periodo_referencia}
+                  </span>
+                )}
+              </p>
             </div>
             <div className="hidden sm:flex items-center gap-3">
               {profile?.is_admin && (
