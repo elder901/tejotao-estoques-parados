@@ -97,7 +97,15 @@ const Index = () => {
   }, [allItems, selectedUnit, selectedDepartment]);
 
   const totalEstoque = filteredItems.reduce((s, i) => s + i.estoqueCustoMedio, 0);
-  const avgDias = filteredItems.length > 0 ? filteredItems.reduce((s, i) => s + i.diasEstoque, 0) / filteredItems.length : 0;
+  const avgDias = useMemo(() => {
+    if (filteredItems.length === 0) return 0;
+    const totalQtdEstoque = filteredItems.reduce((s, i) => s + i.quantidadeEstoque, 0);
+    const totalVendas = filteredItems.reduce((s, i) => s + i.vendasQuantidade, 0);
+    const diasPeriodo = filteredItems[0]?.diasPeriodo || 1;
+    if (totalVendas === 0) return 0;
+    const vmdDiaria = totalVendas / diasPeriodo;
+    return totalQtdEstoque / vmdDiaria;
+  }, [filteredItems]);
   const criticalCount = filteredItems.filter(i => i.diasEstoque >= 90).length;
 
   const handleSelectItem = (item: StockItem) => {
