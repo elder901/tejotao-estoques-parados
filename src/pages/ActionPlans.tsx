@@ -4,7 +4,7 @@ import { getActionPlans, type ActionPlan } from '@/lib/actionPlanStore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, CheckCircle2, Clock, AlertTriangle, TrendingDown, Loader2, Users } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock, AlertTriangle, TrendingDown, Loader2, Users, LogOut, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,7 +19,7 @@ function DollarSign() {
 
 const ActionPlans = () => {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, signOut } = useAuth();
   const [allItems, setAllItems] = useState<StockItem[]>([]);
   const [plans, setPlans] = useState<ActionPlan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,6 +112,16 @@ const ActionPlans = () => {
                 <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Análise de Planos de Ação</h1>
                 <p className="text-primary-foreground/70 text-xs sm:text-sm mt-0.5">Acompanhamento e valores dos planos definidos</p>
               </div>
+            </div>
+            <div className="flex items-center gap-1 sm:gap-3">
+              {profile?.is_admin && (
+                <Button variant="ghost" size="sm" onClick={() => navigate('/admin')} className="text-primary-foreground hover:bg-primary-foreground/10 px-2 sm:px-3">
+                  <Shield className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Admin</span>
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" onClick={signOut} className="text-primary-foreground hover:bg-primary-foreground/10 px-2 sm:px-3">
+                <LogOut className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Sair</span>
+              </Button>
             </div>
           </div>
         </div>
