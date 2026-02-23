@@ -24,16 +24,25 @@ const Index = () => {
   const [uploadInfo, setUploadInfo] = useState<CsvUploadInfo | null>(null);
 
   useEffect(() => {
+    const timeout = setTimeout(() => {
+      console.warn('Loading timeout reached, forcing render');
+      setLoading(false);
+    }, 15000);
+
     Promise.all([loadAllData(), getLatestUploadInfo()])
       .then(([data, info]) => {
         setAllItems(data);
         setUploadInfo(info);
-        setLoading(false);
       })
       .catch((err) => {
         console.error('Error loading data:', err);
+      })
+      .finally(() => {
+        clearTimeout(timeout);
         setLoading(false);
       });
+
+    return () => clearTimeout(timeout);
   }, []);
 
   const filteredItems = useMemo(() => {

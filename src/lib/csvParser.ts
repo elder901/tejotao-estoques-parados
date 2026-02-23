@@ -127,13 +127,22 @@ async function loadFromPublic(file: string, unitCode: string): Promise<StockItem
 }
 
 export async function getLatestUploadInfo(): Promise<CsvUploadInfo | null> {
-  const { data } = await supabase
-    .from('csv_uploads')
-    .select('periodo_referencia, uploaded_at')
-    .order('uploaded_at', { ascending: false })
-    .limit(1);
-  if (data && data.length > 0) return data[0] as CsvUploadInfo;
-  return null;
+  try {
+    const { data, error } = await supabase
+      .from('csv_uploads')
+      .select('periodo_referencia, uploaded_at')
+      .order('uploaded_at', { ascending: false })
+      .limit(1);
+    if (error) {
+      console.warn('Error fetching upload info:', error);
+      return null;
+    }
+    if (data && data.length > 0) return data[0] as CsvUploadInfo;
+    return null;
+  } catch (e) {
+    console.warn('Error in getLatestUploadInfo:', e);
+    return null;
+  }
 }
 
 export async function loadAllData(): Promise<StockItem[]> {
