@@ -54,30 +54,10 @@ export async function saveActionPlan(plan: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
-  // Check if exists
-  const existing = await getActionPlan(plan.cod_item, plan.cod_unidade);
-
-  if (existing) {
-    const { data, error } = await supabase
-      .from('action_plans')
-      .update({
-        responsavel: plan.responsavel,
-        estrategia: plan.estrategia,
-        prazo: plan.prazo || null,
-        status: plan.status,
-        observacoes: plan.observacoes,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', existing.id)
-      .select()
-      .single();
-    if (error) throw error;
-    return data as ActionPlan;
-  }
-
+  // Use upsert to handle both insert and update in one call
   const { data, error } = await supabase
     .from('action_plans')
-    .insert({
+    .upsert({
       cod_item: plan.cod_item,
       cod_unidade: plan.cod_unidade,
       user_id: user.id,
@@ -86,9 +66,13 @@ export async function saveActionPlan(plan: {
       prazo: plan.prazo || null,
       status: plan.status,
       observacoes: plan.observacoes,
+      updated_at: new Date().toISOString(),
+    }, {
+      onConflict: 'cod_item,cod_unidade',
     })
     .select()
     .single();
+
   if (error) throw error;
   return data as ActionPlan;
 }
