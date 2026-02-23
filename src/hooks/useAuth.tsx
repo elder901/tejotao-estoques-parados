@@ -33,7 +33,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // Safety timeout - if auth never resolves, stop loading anyway
+    const safetyTimeout = setTimeout(() => {
+      console.warn('Auth safety timeout reached, forcing loading=false');
+      setLoading(false);
+    }, 5000);
+
+    let resolved = false;
+    const resolve = () => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(safetyTimeout);
+        setLoading(false);
+      }
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state change:', event);
       const u = session?.user ?? null;
       setUser(u);
       if (u) {
@@ -41,19 +57,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setProfile(null);
       }
-      setLoading(false);
+      resolve();
     });
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      console.log('getSession result:', session ? 'has session' : 'no session');
       const u = session?.user ?? null;
       setUser(u);
       if (u) {
         await fetchProfile(u.id);
       }
-      setLoading(false);
+      resolve();
+    }).catch((err) => {
+      console.error('getSession error:', err);
+      resolve();
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(safetyTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
