@@ -92,3 +92,21 @@ export async function saveActionPlan(plan: {
   if (error) throw error;
   return data as ActionPlan;
 }
+
+export async function deleteActionPlan(codItem: string, codUnidade: string): Promise<void> {
+  const { data } = await supabase
+    .from('action_plans')
+    .select('id')
+    .eq('cod_item', codItem)
+    .eq('cod_unidade', codUnidade)
+    .maybeSingle();
+
+  if (!data) return;
+
+  const { error } = await supabase
+    .from('action_plans')
+    .delete()
+    .eq('id', data.id);
+
+  if (error) throw error;
+}

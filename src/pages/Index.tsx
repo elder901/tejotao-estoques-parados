@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { loadAllData, StockItem, getUniqueDepartments, getUniqueSuppliers, getUniqueUnits, formatCurrency, formatNumber, getLatestUploadInfo, type CsvUploadInfo } from '@/lib/csvParser';
-import { getActionPlans, type ActionPlan } from '@/lib/actionPlanStore';
+import { getActionPlans } from '@/lib/actionPlanStore';
 import { FilterBar, type DaysRange } from '@/components/FilterBar';
 import { StockTable } from '@/components/StockTable';
 import { ItemDrilldown } from '@/components/ItemDrilldown';
@@ -149,6 +149,12 @@ const Index = () => {
     setSupplierSearch('');
   };
 
+  const refreshActionPlans = () => {
+    getActionPlans().then((plans) => {
+      setActionPlanKeys(new Set(plans.map(p => `${p.cod_item}-${p.cod_unidade}`)));
+    }).catch(() => {});
+  };
+
   const handleDaysRangeToggle = (range: DaysRange) => {
     setSelectedDaysRanges(prev =>
       prev.includes(range) ? prev.filter(r => r !== range) : [...prev, range]
@@ -246,7 +252,7 @@ const Index = () => {
         </div>
 
         {/* Table */}
-        <StockTable items={top50Items} onSelectItem={handleSelectItem} />
+        <StockTable items={top50Items} onSelectItem={handleSelectItem} actionPlanKeys={actionPlanKeys} />
       </main>
 
       {/* Drilldown */}
@@ -254,6 +260,7 @@ const Index = () => {
         item={selectedItem}
         open={drilldownOpen}
         onClose={() => setDrilldownOpen(false)}
+        onPlanChanged={refreshActionPlans}
       />
     </div>
   );

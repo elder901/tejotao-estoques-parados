@@ -1,18 +1,12 @@
 import { StockItem, formatCurrency, formatNumber } from '@/lib/csvParser';
-import { getActionPlan } from '@/lib/actionPlanStore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ChevronRight, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { ChevronRight, CheckCircle2, XCircle } from 'lucide-react';
 
 interface StockTableProps {
   items: StockItem[];
   onSelectItem: (item: StockItem) => void;
-}
-
-function getDiasClass(dias: number): string {
-  if (dias >= 90) return 'stock-critical';
-  if (dias >= 45) return 'stock-warning';
-  return 'stock-healthy';
+  actionPlanKeys?: Set<string>;
 }
 
 function getDiasBadge(dias: number) {
@@ -21,7 +15,7 @@ function getDiasBadge(dias: number) {
   return <Badge variant="secondary" className="text-xs">{formatNumber(dias, 0)}d</Badge>;
 }
 
-export function StockTable({ items, onSelectItem }: StockTableProps) {
+export function StockTable({ items, onSelectItem, actionPlanKeys }: StockTableProps) {
   return (
     <div className="bg-card rounded-lg border overflow-hidden">
       <div className="overflow-x-auto">
@@ -44,7 +38,7 @@ export function StockTable({ items, onSelectItem }: StockTableProps) {
           </TableHeader>
           <TableBody>
             {items.map((item, index) => {
-              const plan = getActionPlan(item.codItem, item.codUnidade);
+              const hasPlan = actionPlanKeys?.has(`${item.codItem}-${item.codUnidade}`) ?? false;
               return (
                 <TableRow
                   key={`${item.codItem}-${item.codUnidade}`}
@@ -62,10 +56,10 @@ export function StockTable({ items, onSelectItem }: StockTableProps) {
                   <TableCell className="text-xs text-right">{formatNumber(item.quantidadeEstoque, 0)}</TableCell>
                   <TableCell className="text-xs text-center">{formatNumber(item.giro)}</TableCell>
                   <TableCell className="text-center">
-                    {plan ? (
-                      <CheckCircle2 className="h-4 w-4 text-success mx-auto" />
+                    {hasPlan ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600 mx-auto" />
                     ) : (
-                      <AlertTriangle className="h-4 w-4 text-accent mx-auto" />
+                      <XCircle className="h-4 w-4 text-destructive mx-auto" />
                     )}
                   </TableCell>
                   <TableCell>
