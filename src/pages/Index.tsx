@@ -27,13 +27,13 @@ const Index = () => {
     const timeout = setTimeout(() => {
       console.warn('Loading timeout reached, forcing render');
       setLoading(false);
-    }, 10000);
+    }, 15000);
 
-    Promise.all([loadAllData(), getLatestUploadInfo()])
-      .then(([data, info]) => {
+    // Load data and upload info independently to avoid one blocking the other
+    loadAllData()
+      .then((data) => {
         console.log(`[Index] Data loaded: ${data.length} items`);
         setAllItems(data);
-        setUploadInfo(info);
         if (data.length === 0) {
           console.warn('[Index] No data loaded from any source');
         }
@@ -45,6 +45,15 @@ const Index = () => {
         clearTimeout(timeout);
         setLoading(false);
       });
+
+    // Upload info is non-critical, load separately with timeout
+    const infoTimeout = Promise.race([
+      getLatestUploadInfo(),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000))
+    ]);
+    infoTimeout.then((info) => {
+      if (info) setUploadInfo(info);
+    }).catch(() => {});
 
     return () => clearTimeout(timeout);
   }, []);
