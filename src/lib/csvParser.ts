@@ -152,16 +152,36 @@ export async function getLatestUploadInfo(): Promise<CsvUploadInfo | null> {
   }
 }
 
+// Helper to add timeout to promises
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => {
+      console.warn(`[loadAllData] Query timed out after ${ms}ms`);
+      resolve(fallback);
+    }, ms))
+  ]);
+}
+
 export async function loadAllData(): Promise<StockItem[]> {
+  console.log('[loadAllData] Starting data load...');
+  
+  // Try loading from storage first, with a 5-second timeout
   try {
-    // Try loading from storage first (latest uploads per unit)
-    const { data: uploads, error } = await supabase
-      .from('csv_uploads')
-      .select('*')
-      .order('uploaded_at', { ascending: false });
+    const queryPromise = new Promise<{ data: any; error: any }>((resolve) => {
+      supabase
+        .from('csv_uploads')
+        .select('*')
+        .order('uploaded_at', { ascending: false })
+        .then(result => resolve(result));
+      setTimeout(() => resolve({ data: null, error: { message: 'timeout' } }), 5000);
+    });
+
+    const uploadsResult = await queryPromise;
+
+    const { data: uploads, error } = uploadsResult;
 
     if (!error && uploads && uploads.length > 0) {
-      // Get latest upload per unit_code
       const latestByUnit = new Map<string, any>();
       for (const u of uploads) {
         if (!latestByUnit.has(u.unit_code)) {
@@ -169,29 +189,32 @@ export async function loadAllData(): Promise<StockItem[]> {
         }
       }
 
-      console.log('Loading from storage, units:', Array.from(latestByUnit.keys()));
+      console.log('[loadAllData] Loading from storage, units:', Array.from(latestByUnit.keys()));
       const promises = Array.from(latestByUnit.values()).map(u =>
         loadFromStorage(u.storage_path, u.unit_code)
       );
       const results = await Promise.all(promises);
       const allItems = results.flat();
-      console.log(`Loaded ${allItems.length} items from storage`);
+      console.log(`[loadAllData] Loaded ${allItems.length} items from storage`);
       if (allItems.length > 0) return allItems;
-      console.warn('No items from storage, falling back to static files');
+      console.warn('[loadAllData] No items from storage, falling back to static files');
+    } else {
+      console.log('[loadAllData] No uploads found or error:', error?.message || 'empty');
     }
   } catch (e) {
-    console.warn('Error loading from storage, falling back to static files:', e);
+    console.warn('[loadAllData] Error loading from storage:', e);
   }
 
   // Fallback to static files
-  console.log('Loading from static files...');
+  console.log('[loadAllData] Loading from static files...');
   const [store1, store2, store3] = await Promise.all([
     loadFromPublic('Gloja1F.csv', '001'),
     loadFromPublic('Gloja2F.csv', '002'),
     loadFromPublic('Gloja3F.csv', '003'),
   ]);
+  console.log(`[loadAllData] Static: store1=${store1.length}, store2=${store2.length}, store3=${store3.length}`);
   const total = [...store1, ...store2, ...store3];
-  console.log(`Loaded ${total.length} items from static files`);
+  console.log(`[loadAllData] Total: ${total.length} items`);
   return total;
 }
 

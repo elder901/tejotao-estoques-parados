@@ -31,11 +31,15 @@ const Index = () => {
 
     Promise.all([loadAllData(), getLatestUploadInfo()])
       .then(([data, info]) => {
+        console.log(`[Index] Data loaded: ${data.length} items`);
         setAllItems(data);
         setUploadInfo(info);
+        if (data.length === 0) {
+          console.warn('[Index] No data loaded from any source');
+        }
       })
       .catch((err) => {
-        console.error('Error loading data:', err);
+        console.error('[Index] Error loading data:', err);
       })
       .finally(() => {
         clearTimeout(timeout);

@@ -24,12 +24,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-    if (data) setProfile(data as Profile);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      if (error) {
+        console.error('[Auth] Error fetching profile:', error.message);
+      }
+      if (data) {
+        console.log('[Auth] Profile loaded:', data.name, 'is_admin:', data.is_admin);
+        setProfile(data as Profile);
+      } else {
+        console.warn('[Auth] No profile found for user:', userId);
+      }
+    } catch (e) {
+      console.error('[Auth] Exception fetching profile:', e);
+    }
   };
 
   useEffect(() => {
