@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { loadAllData, StockItem, getUniqueDepartments, getUniqueSuppliers, getUniqueUnits, formatCurrency, formatNumber, getLatestUploadInfo, type CsvUploadInfo } from '@/lib/csvParser';
+import { getActionPlans, type ActionPlan } from '@/lib/actionPlanStore';
 import { FilterBar, type DaysRange } from '@/components/FilterBar';
 import { StockTable } from '@/components/StockTable';
 import { ItemDrilldown } from '@/components/ItemDrilldown';
-import { Package, TrendingDown, AlertTriangle, BarChart3, Loader2, ClipboardList, LogOut, Shield, CalendarDays } from 'lucide-react';
+import { Package, TrendingDown, AlertTriangle, BarChart3, Loader2, ClipboardList, LogOut, Shield, CalendarDays, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,7 +23,7 @@ const Index = () => {
   const [selectedDaysRanges, setSelectedDaysRanges] = useState<DaysRange[]>([]);
   const [supplierSearch, setSupplierSearch] = useState('');
   const [uploadInfo, setUploadInfo] = useState<CsvUploadInfo | null>(null);
-
+  const [actionPlanKeys, setActionPlanKeys] = useState<Set<string>>(new Set());
   useEffect(() => {
     const timeout = setTimeout(() => {
       console.warn('Loading timeout reached, forcing render');
@@ -53,6 +54,12 @@ const Index = () => {
     ]);
     infoTimeout.then((info) => {
       if (info) setUploadInfo(info);
+    }).catch(() => {});
+
+    // Load action plans to compute KPI
+    getActionPlans().then((plans) => {
+      const keys = new Set(plans.map(p => `${p.cod_item}-${p.cod_unidade}`));
+      setActionPlanKeys(keys);
     }).catch(() => {});
 
     return () => clearTimeout(timeout);
@@ -124,6 +131,9 @@ const Index = () => {
     return totalQtdEstoque / vmdDiaria;
   }, [filteredItems]);
   const criticalCount = filteredItems.filter(i => i.diasEstoque >= 90).length;
+  const totalComPlano = useMemo(() => {
+    return filteredItems.filter(i => actionPlanKeys.has(`${i.codItem}-${i.codUnidade}`)).reduce((s, i) => s + i.estoqueCustoMedio, 0);
+  }, [filteredItems, actionPlanKeys]);
 
   const handleSelectItem = (item: StockItem) => {
     setSelectedItem(item);
@@ -197,8 +207,9 @@ const Index = () => {
 
       <main className="max-w-[1400px] mx-auto px-4 py-5 space-y-4">
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           <KpiCard icon={<DollarSign />} label="Valor Total Estoque" value={formatCurrency(totalEstoque)} />
+          <KpiCard icon={<CheckCircle2 />} label="Valor c/ Plano de Ação" value={formatCurrency(totalComPlano)} />
           <KpiCard icon={<TrendingDown />} label="Média Dias Estoque" value={`${formatNumber(avgDias, 0)} dias`} />
           <KpiCard icon={<AlertTriangle />} label="Itens Críticos (90+ dias)" value={String(criticalCount)} danger />
           <KpiCard icon={<BarChart3 />} label="Itens no Ranking" value={`${top50Items.length} de ${filteredItems.length}`} />
