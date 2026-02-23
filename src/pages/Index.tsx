@@ -165,19 +165,19 @@ const Index = () => {
                 )}
               </p>
             </div>
-            <div className="hidden sm:flex items-center gap-3">
+            <div className="flex items-center gap-1 sm:gap-3 flex-wrap">
               {profile?.is_admin && (
-                <Button variant="ghost" size="sm" onClick={() => navigate('/admin')} className="text-primary-foreground hover:bg-primary-foreground/10">
-                  <Shield className="h-4 w-4 mr-1" /> Admin
+                <Button variant="ghost" size="sm" onClick={() => navigate('/admin')} className="text-primary-foreground hover:bg-primary-foreground/10 px-2 sm:px-3">
+                  <Shield className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Admin</span>
                 </Button>
               )}
-              <Button variant="ghost" size="sm" onClick={() => navigate('/planos')} className="text-primary-foreground hover:bg-primary-foreground/10">
-                <ClipboardList className="h-4 w-4 mr-1" /> Planos de Ação
+              <Button variant="ghost" size="sm" onClick={() => navigate('/planos')} className="text-primary-foreground hover:bg-primary-foreground/10 px-2 sm:px-3">
+                <ClipboardList className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Planos de Ação</span>
               </Button>
-              <Button variant="ghost" size="sm" onClick={signOut} className="text-primary-foreground hover:bg-primary-foreground/10">
-                <LogOut className="h-4 w-4 mr-1" /> Sair
+              <Button variant="ghost" size="sm" onClick={signOut} className="text-primary-foreground hover:bg-primary-foreground/10 px-2 sm:px-3">
+                <LogOut className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Sair</span>
               </Button>
-              <div className="flex items-center gap-1.5 bg-primary-foreground/10 rounded-md px-3 py-1.5">
+              <div className="hidden sm:flex items-center gap-1.5 bg-primary-foreground/10 rounded-md px-3 py-1.5">
                 <Package className="h-4 w-4" />
                 <span className="text-xs font-medium">{profile?.name || 'Usuário'}</span>
               </div>
