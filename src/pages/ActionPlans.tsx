@@ -26,6 +26,8 @@ const ActionPlans = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterUnit, setFilterUnit] = useState('all');
   const [filterDepartment, setFilterDepartment] = useState('all');
+  const [filterUser, setFilterUser] = useState('all');
+  const [filterSupplier, setFilterSupplier] = useState('all');
 
   useEffect(() => {
     Promise.all([loadAllData(), getActionPlans()]).then(([items, plansData]) => {
@@ -47,14 +49,26 @@ const ActionPlans = () => {
     if (filterStatus !== 'all') result = result.filter(e => e.plan.status === filterStatus);
     if (filterUnit !== 'all') result = result.filter(e => e.item!.codUnidade === filterUnit);
     if (filterDepartment !== 'all') result = result.filter(e => e.item!.departamento === filterDepartment);
+    if (filterUser !== 'all') result = result.filter(e => e.plan.user_name === filterUser);
+    if (filterSupplier !== 'all') result = result.filter(e => e.item!.fornecedor === filterSupplier);
     return result;
-  }, [enrichedPlans, filterStatus, filterUnit, filterDepartment]);
+  }, [enrichedPlans, filterStatus, filterUnit, filterDepartment, filterUser, filterSupplier]);
 
   const units = useMemo(() => getUniqueUnits(allItems), [allItems]);
   const departments = useMemo(() => {
     const base = filterUnit !== 'all' ? allItems.filter(i => i.codUnidade === filterUnit) : allItems;
     return getUniqueDepartments(base);
   }, [allItems, filterUnit]);
+
+  const uniqueUsers = useMemo(() => {
+    const names = new Set(enrichedPlans.map(e => e.plan.user_name).filter(Boolean));
+    return Array.from(names).sort() as string[];
+  }, [enrichedPlans]);
+
+  const uniqueSuppliers = useMemo(() => {
+    const suppliers = new Set(enrichedPlans.map(e => e.item!.fornecedor).filter(Boolean));
+    return Array.from(suppliers).sort();
+  }, [enrichedPlans]);
 
   const totalComPlano = enrichedPlans.reduce((s, e) => s + (e.item?.estoqueCustoMedio || 0), 0);
   const totalSemPlano = useMemo(() => {
@@ -158,7 +172,7 @@ const ActionPlans = () => {
 
         {/* Filters */}
         <div className="bg-card rounded-lg border p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -188,6 +202,26 @@ const ActionPlans = () => {
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
                   {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Comprador</label>
+              <Select value={filterUser} onValueChange={setFilterUser}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {uniqueUsers.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Fornecedor</label>
+              <Select value={filterSupplier} onValueChange={setFilterSupplier}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {uniqueSuppliers.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

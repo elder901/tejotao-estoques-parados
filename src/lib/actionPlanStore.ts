@@ -19,27 +19,27 @@ export interface ActionPlan {
 export async function getActionPlans(): Promise<ActionPlan[]> {
   const { data, error } = await supabase
     .from('action_plans')
-    .select('*')
+    .select('*, profiles:user_id(name)')
     .order('updated_at', { ascending: false });
 
   if (error || !data) return [];
 
   return data.map((d: any) => ({
     ...d,
-    user_name: 'Usuário',
+    user_name: d.profiles?.name || 'Desconhecido',
   }));
 }
 
 export async function getActionPlan(codItem: string, codUnidade: string): Promise<ActionPlan | undefined> {
   const { data } = await supabase
     .from('action_plans')
-    .select('*')
+    .select('*, profiles:user_id(name)')
     .eq('cod_item', codItem)
     .eq('cod_unidade', codUnidade)
     .maybeSingle();
 
   if (!data) return undefined;
-  return { ...data, user_name: 'Usuário' } as ActionPlan;
+  return { ...data, user_name: (data as any).profiles?.name || 'Desconhecido' } as ActionPlan;
 }
 
 export async function saveActionPlan(plan: {
