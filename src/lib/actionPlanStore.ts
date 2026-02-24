@@ -19,27 +19,43 @@ export interface ActionPlan {
 export async function getActionPlans(): Promise<ActionPlan[]> {
   const { data, error } = await supabase
     .from('action_plans')
-    .select('*, profiles:user_id(name)')
+    .select('*')
     .order('updated_at', { ascending: false });
 
   if (error || !data) return [];
 
+  // Fetch profile names for all unique user_ids
+  const userIds = [...new Set(data.map((d: any) => d.user_id))];
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, name')
+    .in('id', userIds);
+
+  const profileMap = new Map((profiles || []).map((p: any) => [p.id, p.name]));
+
   return data.map((d: any) => ({
     ...d,
-    user_name: d.profiles?.name || 'Desconhecido',
+    user_name: profileMap.get(d.user_id) || 'Desconhecido',
   }));
 }
 
 export async function getActionPlan(codItem: string, codUnidade: string): Promise<ActionPlan | undefined> {
   const { data } = await supabase
     .from('action_plans')
-    .select('*, profiles:user_id(name)')
+    .select('*')
     .eq('cod_item', codItem)
     .eq('cod_unidade', codUnidade)
     .maybeSingle();
 
   if (!data) return undefined;
-  return { ...data, user_name: (data as any).profiles?.name || 'Desconhecido' } as ActionPlan;
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('name')
+    .eq('id', data.user_id)
+    .maybeSingle();
+
+  return { ...data, user_name: profile?.name || 'Desconhecido' } as ActionPlan;
 }
 
 export async function saveActionPlan(plan: {
