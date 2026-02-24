@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Loader2, UserPlus, Shield, Upload, FileSpreadsheet, CalendarDays } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { ArrowLeft, Loader2, UserPlus, Shield, Upload, FileSpreadsheet, CalendarDays, Pencil, KeyRound, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface UserProfile {
@@ -39,6 +40,16 @@ const Admin = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [creating, setCreating] = useState(false);
+
+  // User management state
+  const [editUser, setEditUser] = useState<UserProfile | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+  const [passwordUser, setPasswordUser] = useState<UserProfile | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [deleteUser, setDeleteUser] = useState<UserProfile | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // CSV upload state
   const [periodoRef, setPeriodoRef] = useState('');
@@ -117,6 +128,61 @@ const Admin = () => {
       toast.error(err.message || 'Erro ao criar usuário');
     }
     setCreating(false);
+  };
+
+  const handleUpdateName = async () => {
+    if (!editUser || !editName.trim()) return;
+    setEditSaving(true);
+    try {
+      const res = await supabase.functions.invoke('manage-user', {
+        body: { action: 'update_name', user_id: editUser.id, name: editName.trim() },
+      });
+      if (res.error || res.data?.error) {
+        toast.error(res.data?.error || res.error?.message || 'Erro');
+      } else {
+        toast.success('Nome atualizado!');
+        setEditUser(null);
+        fetchUsers();
+      }
+    } catch (err: any) { toast.error(err.message); }
+    setEditSaving(false);
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!passwordUser || !newPassword) return;
+    if (newPassword.length < 6) { toast.error('Mínimo 6 caracteres'); return; }
+    setPasswordSaving(true);
+    try {
+      const res = await supabase.functions.invoke('manage-user', {
+        body: { action: 'update_password', user_id: passwordUser.id, password: newPassword },
+      });
+      if (res.error || res.data?.error) {
+        toast.error(res.data?.error || res.error?.message || 'Erro');
+      } else {
+        toast.success('Senha atualizada!');
+        setPasswordUser(null);
+        setNewPassword('');
+      }
+    } catch (err: any) { toast.error(err.message); }
+    setPasswordSaving(false);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deleteUser) return;
+    setDeleting(true);
+    try {
+      const res = await supabase.functions.invoke('manage-user', {
+        body: { action: 'delete', user_id: deleteUser.id },
+      });
+      if (res.error || res.data?.error) {
+        toast.error(res.data?.error || res.error?.message || 'Erro');
+      } else {
+        toast.success(`Usuário ${deleteUser.name} excluído!`);
+        setDeleteUser(null);
+        fetchUsers();
+      }
+    } catch (err: any) { toast.error(err.message); }
+    setDeleting(false);
   };
 
   const handleFileChange = (unitCode: string, file: File | null) => {
@@ -353,21 +419,90 @@ const Admin = () => {
                 <TableHead className="text-xs font-bold">Nome</TableHead>
                 <TableHead className="text-xs font-bold">Tipo</TableHead>
                 <TableHead className="text-xs font-bold">Criado em</TableHead>
+                <TableHead className="text-xs font-bold text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loadingUsers ? (
-                <TableRow><TableCell colSpan={3} className="text-center py-6"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={4} className="text-center py-6"><Loader2 className="h-5 w-5 animate-spin mx-auto" /></TableCell></TableRow>
               ) : users.map(u => (
                 <TableRow key={u.id}>
                   <TableCell className="text-sm font-medium">{u.name}</TableCell>
                   <TableCell>{u.is_admin ? <Badge>Admin</Badge> : <Badge variant="secondary">Comprador</Badge>}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{new Date(u.created_at).toLocaleDateString('pt-BR')}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Editar nome" onClick={() => { setEditUser(u); setEditName(u.name); }}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Alterar senha" onClick={() => { setPasswordUser(u); setNewPassword(''); }}>
+                        <KeyRound className="h-3.5 w-3.5" />
+                      </Button>
+                      {u.id !== user?.id && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Excluir" onClick={() => setDeleteUser(u)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
+
+        {/* Edit Name Dialog */}
+        <Dialog open={!!editUser} onOpenChange={v => !v && setEditUser(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>Editar Nome</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <label className="text-xs font-medium text-muted-foreground">Novo nome</label>
+              <Input value={editName} onChange={e => setEditName(e.target.value)} className="h-9 text-sm" />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditUser(null)}>Cancelar</Button>
+              <Button onClick={handleUpdateName} disabled={editSaving}>
+                {editSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                Salvar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Change Password Dialog */}
+        <Dialog open={!!passwordUser} onOpenChange={v => !v && setPasswordUser(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>Alterar Senha — {passwordUser?.name}</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <label className="text-xs font-medium text-muted-foreground">Nova senha (mínimo 6 caracteres)</label>
+              <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Nova senha" className="h-9 text-sm" />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setPasswordUser(null)}>Cancelar</Button>
+              <Button onClick={handleUpdatePassword} disabled={passwordSaving}>
+                {passwordSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                Alterar Senha
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete User Dialog */}
+        <Dialog open={!!deleteUser} onOpenChange={v => !v && setDeleteUser(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>Excluir Usuário</DialogTitle></DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              Tem certeza que deseja excluir <strong>{deleteUser?.name}</strong>? Esta ação não pode ser desfeita.
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteUser(null)}>Cancelar</Button>
+              <Button variant="destructive" onClick={handleDeleteUser} disabled={deleting}>
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Trash2 className="h-4 w-4 mr-1" />}
+                Excluir
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
