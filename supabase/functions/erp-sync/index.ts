@@ -133,6 +133,12 @@ Deno.serve(async (req) => {
   let syncId: string | null = null
 
   try {
+    let etapa: 'tudo' | 'estoque' | 'ruptura' = 'tudo'
+    try {
+      const corpo = await req.json()
+      if (corpo?.etapa === 'estoque' || corpo?.etapa === 'ruptura') etapa = corpo.etapa
+    } catch { /* sem corpo */ }
+
     const authHeader = (req.headers.get('Authorization') ?? '').replace('Bearer ', '')
     const cronSecret = Deno.env.get('ERP_SYNC_CRON_SECRET')
     const cronHeader = req.headers.get('x-cron-secret')
@@ -177,54 +183,60 @@ Deno.serve(async (req) => {
       vendasMap.set(`${String(unid).trim()}|${String(cod).trim()}`, Number(qtde) || 0)
     }
 
-    // 2) Estoque atual + dimensões, em páginas
-    const TAM_PAGINA = 20000
-    const limite = Math.min(60000, Math.max(100, Math.floor(Number(params.limite_linhas) || 25000)))
-    const estoqueRows: any[][] = []
-    for (let pagina = 0; estoqueRows.length < limite; pagina++) {
-      const pacote = desempacotar(
-        await runErpSql(token, sqlEstoque(params, pagina, TAM_PAGINA), `Estoque atual (página ${pagina + 1})`),
-      )
-      estoqueRows.push(...pacote)
-      if (pacote.length < TAM_PAGINA) break
-    }
-
-    const calculadas = estoqueRows.slice(0, limite).map(([unid, cod, descricao, dpto, dptoNome, fornecedor, est, ctm]) =>
-      calcularLinha(
-        {
-          unid, cod, descricao, dpto, dpto_nome: dptoNome, fornecedor, est, ctm,
-          vendas: vendasMap.get(`${String(unid).trim()}|${String(cod).trim()}`) ?? 0,
-        },
-        params,
-        regra.versao,
-        syncId!,
-      ),
-    ).filter((r) => r.cod_item && r.cod_unidade)
-
-    // Substitui o snapshot anterior por completo
-    await admin.from('erp_estoque_snapshot').delete().neq('cod_item', '__nenhum__')
-
     const CHUNK = 1000
-    for (let i = 0; i < calculadas.length; i += CHUNK) {
-      const { error } = await admin
-        .from('erp_estoque_snapshot')
-        .upsert(calculadas.slice(i, i + CHUNK), { onConflict: 'cod_unidade,cod_item' })
-      if (error) throw new Error(`Falha ao gravar snapshot: ${error.message}`)
+    let calculadas: any[] = []
+
+    // 2) Estoque atual + dimensões, em páginas
+    if (etapa !== 'ruptura') {
+      const TAM_PAGINA = 20000
+      const limite = Math.min(60000, Math.max(100, Math.floor(Number(params.limite_linhas) || 25000)))
+      const estoqueRows: any[][] = []
+      for (let pagina = 0; estoqueRows.length < limite; pagina++) {
+        const pacote = desempacotar(
+          await runErpSql(token, sqlEstoque(params, pagina, TAM_PAGINA), `Estoque atual (página ${pagina + 1})`),
+        )
+        estoqueRows.push(...pacote)
+        if (pacote.length < TAM_PAGINA) break
+      }
+
+      calculadas = estoqueRows.slice(0, limite).map(([unid, cod, descricao, dpto, dptoNome, fornecedor, est, ctm]) =>
+        calcularLinha(
+          {
+            unid, cod, descricao, dpto, dpto_nome: dptoNome, fornecedor, est, ctm,
+            vendas: vendasMap.get(`${String(unid).trim()}|${String(cod).trim()}`) ?? 0,
+          },
+          params,
+          regra.versao,
+          syncId!,
+        ),
+      ).filter((r) => r.cod_item && r.cod_unidade)
+
+      // Substitui o snapshot anterior por completo
+      await admin.from('erp_estoque_snapshot').delete().neq('cod_item', '__nenhum__')
+
+      for (let i = 0; i < calculadas.length; i += CHUNK) {
+        const { error } = await admin
+          .from('erp_estoque_snapshot')
+          .upsert(calculadas.slice(i, i + CHUNK), { onConflict: 'cod_unidade,cod_item' })
+        if (error) throw new Error(`Falha ao gravar snapshot: ${error.message}`)
+      }
     }
 
     // 3) Ruptura: itens com estoque zerado que NÃO estão bloqueados (ou seja, vendemos)
-    const janelaDias = Math.max(1, Math.floor(Number(params.janela_dias) || 90))
-    const TAM_RUPTURA = 20000
-    const rupturaRows: any[][] = []
-    for (let pagina = 0; pagina < 6; pagina++) {
-      const pacote = desempacotar(
-        await runErpSql(token, sqlRuptura(pagina, TAM_RUPTURA), `Ruptura (página ${pagina + 1})`),
-      )
-      rupturaRows.push(...pacote)
-      if (pacote.length < TAM_RUPTURA) break
-    }
+    let rupturas: any[] = []
+    if (etapa !== 'estoque') {
+      const janelaDias = Math.max(1, Math.floor(Number(params.janela_dias) || 90))
+      const TAM_RUPTURA = 15000
+      const rupturaRows: any[][] = []
+      for (let pagina = 0; pagina < 8; pagina++) {
+        const pacote = desempacotar(
+          await runErpSql(token, sqlRuptura(pagina, TAM_RUPTURA), `Ruptura (página ${pagina + 1})`),
+        )
+        rupturaRows.push(...pacote)
+        if (pacote.length < TAM_RUPTURA) break
+      }
 
-    const rupturas = rupturaRows
+      rupturas = rupturaRows
       .map(([unid, cod, descricao, dpto, dptoNome, fornecedor, est, ctm, prv]) => {
         const vendas = vendasMap.get(`${String(unid).trim()}|${String(cod).trim()}`) ?? 0
         const vmd = vendas / janelaDias
@@ -249,21 +261,23 @@ Deno.serve(async (req) => {
       })
       .filter((r) => r.cod_item && r.cod_unidade)
 
-    await admin.from('erp_ruptura_snapshot').delete().neq('cod_item', '__nenhum__')
-    for (let i = 0; i < rupturas.length; i += CHUNK) {
-      const { error } = await admin
-        .from('erp_ruptura_snapshot')
-        .upsert(rupturas.slice(i, i + CHUNK), { onConflict: 'cod_unidade,cod_item' })
-      if (error) throw new Error(`Falha ao gravar ruptura: ${error.message}`)
+      await admin.from('erp_ruptura_snapshot').delete().neq('cod_item', '__nenhum__')
+      const lotes: Promise<any>[] = []
+      for (let i = 0; i < rupturas.length; i += CHUNK) {
+        lotes.push(admin.from('erp_ruptura_snapshot').insert(rupturas.slice(i, i + CHUNK)))
+      }
+      const resultados = await Promise.all(lotes)
+      const falha = resultados.find((r: any) => r.error)
+      if (falha) throw new Error(`Falha ao gravar ruptura: ${falha.error.message}`)
     }
 
     await admin.from('erp_sync_log').update({
       status: 'concluido',
-      linhas: calculadas.length,
+      linhas: etapa === 'ruptura' ? rupturas.length : calculadas.length,
       finalizado_em: new Date().toISOString(),
     }).eq('id', syncId)
 
-    return json({ ok: true, linhas: calculadas.length, rupturas: rupturas.length, regra_versao: regra.versao, sync_id: syncId })
+    return json({ ok: true, etapa, linhas: calculadas.length, rupturas: rupturas.length, regra_versao: regra.versao, sync_id: syncId })
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     console.error('erp-sync error:', message)
