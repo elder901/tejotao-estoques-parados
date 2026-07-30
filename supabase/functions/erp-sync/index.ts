@@ -78,6 +78,23 @@ function desempacotar(rows: any[]): any[][] {
   return JSON.parse(texto)
 }
 
+/** SQL da ruptura: estoque zerado (ou negativo) e item NÃO bloqueado (= vendemos). */
+export function sqlRuptura(pagina: number, tamanho: number) {
+  return (
+    'SELECT json_agg(json_build_array(x.unid, x.cod, x.descricao, x.dpto, x.dpto_nome, x.fornecedor, x.est, x.ctm, x.prv))::text AS pacote FROM (' +
+    'SELECT pu.prun_unid_codigo AS unid, pu.prun_prod_codigo AS cod, ' +
+    'pr.prod_descricao AS descricao, pr.prod_dpto_codigo AS dpto, ' +
+    'd.dpto_descricao AS dpto_nome, f.forn_nome AS fornecedor, ' +
+    'pu.prun_estoque1 AS est, pu.prun_ctmedio AS ctm, pu.prun_prvenda AS prv ' +
+    'FROM produn pu ' +
+    'JOIN produtos pr ON pr.prod_codigo = pu.prun_prod_codigo ' +
+    'LEFT JOIN departamentos d ON d.dpto_codigo = pr.prod_dpto_codigo ' +
+    'LEFT JOIN fornecedores f ON f.forn_codigo = coalesce(nullif(pr.prod_forn_codigo, 0), nullif(pu.prun_forn_codigo, 0)) ' +
+    "WHERE pu.prun_estoque1 <= 0 AND coalesce(pu.prun_bloqueado, 'N') = 'N' " +
+    `ORDER BY pu.prun_unid_codigo, pu.prun_prod_codigo LIMIT ${tamanho} OFFSET ${pagina * tamanho}) x`
+  )
+}
+
 /** Aplica a regra de giro sobre uma linha bruta do ERP. */
 export function calcularLinha(row: any, p: RegraParams, versao: number, syncId: string) {
   const janela = Math.max(1, Math.floor(Number(p.janela_dias) || 90))
@@ -116,6 +133,12 @@ Deno.serve(async (req) => {
   let syncId: string | null = null
 
   try {
+    let etapa: 'tudo' | 'estoque' | 'ruptura' = 'tudo'
+    try {
+      const corpo = await req.json()
+      if (corpo?.etapa === 'estoque' || corpo?.etapa === 'ruptura') etapa = corpo.etapa
+    } catch { /* sem corpo */ }
+
     const authHeader = (req.headers.get('Authorization') ?? '').replace('Bearer ', '')
     const cronSecret = Deno.env.get('ERP_SYNC_CRON_SECRET')
     const cronHeader = req.headers.get('x-cron-secret')
@@ -160,48 +183,101 @@ Deno.serve(async (req) => {
       vendasMap.set(`${String(unid).trim()}|${String(cod).trim()}`, Number(qtde) || 0)
     }
 
+    const CHUNK = 1000
+    let calculadas: any[] = []
+
     // 2) Estoque atual + dimensões, em páginas
-    const TAM_PAGINA = 20000
-    const limite = Math.min(60000, Math.max(100, Math.floor(Number(params.limite_linhas) || 25000)))
-    const estoqueRows: any[][] = []
-    for (let pagina = 0; estoqueRows.length < limite; pagina++) {
-      const pacote = desempacotar(
-        await runErpSql(token, sqlEstoque(params, pagina, TAM_PAGINA), `Estoque atual (página ${pagina + 1})`),
-      )
-      estoqueRows.push(...pacote)
-      if (pacote.length < TAM_PAGINA) break
+    if (etapa !== 'ruptura') {
+      const TAM_PAGINA = 20000
+      const limite = Math.min(60000, Math.max(100, Math.floor(Number(params.limite_linhas) || 25000)))
+      const estoqueRows: any[][] = []
+      for (let pagina = 0; estoqueRows.length < limite; pagina++) {
+        const pacote = desempacotar(
+          await runErpSql(token, sqlEstoque(params, pagina, TAM_PAGINA), `Estoque atual (página ${pagina + 1})`),
+        )
+        estoqueRows.push(...pacote)
+        if (pacote.length < TAM_PAGINA) break
+      }
+
+      calculadas = estoqueRows.slice(0, limite).map(([unid, cod, descricao, dpto, dptoNome, fornecedor, est, ctm]) =>
+        calcularLinha(
+          {
+            unid, cod, descricao, dpto, dpto_nome: dptoNome, fornecedor, est, ctm,
+            vendas: vendasMap.get(`${String(unid).trim()}|${String(cod).trim()}`) ?? 0,
+          },
+          params,
+          regra.versao,
+          syncId!,
+        ),
+      ).filter((r) => r.cod_item && r.cod_unidade)
+
+      // Substitui o snapshot anterior por completo
+      await admin.from('erp_estoque_snapshot').delete().neq('cod_item', '__nenhum__')
+
+      for (let i = 0; i < calculadas.length; i += CHUNK) {
+        const { error } = await admin
+          .from('erp_estoque_snapshot')
+          .upsert(calculadas.slice(i, i + CHUNK), { onConflict: 'cod_unidade,cod_item' })
+        if (error) throw new Error(`Falha ao gravar snapshot: ${error.message}`)
+      }
     }
 
-    const calculadas = estoqueRows.slice(0, limite).map(([unid, cod, descricao, dpto, dptoNome, fornecedor, est, ctm]) =>
-      calcularLinha(
-        {
-          unid, cod, descricao, dpto, dpto_nome: dptoNome, fornecedor, est, ctm,
-          vendas: vendasMap.get(`${String(unid).trim()}|${String(cod).trim()}`) ?? 0,
-        },
-        params,
-        regra.versao,
-        syncId!,
-      ),
-    ).filter((r) => r.cod_item && r.cod_unidade)
+    // 3) Ruptura: itens com estoque zerado que NÃO estão bloqueados (ou seja, vendemos)
+    let rupturas: any[] = []
+    if (etapa !== 'estoque') {
+      const janelaDias = Math.max(1, Math.floor(Number(params.janela_dias) || 90))
+      const TAM_RUPTURA = 15000
+      const rupturaRows: any[][] = []
+      for (let pagina = 0; pagina < 8; pagina++) {
+        const pacote = desempacotar(
+          await runErpSql(token, sqlRuptura(pagina, TAM_RUPTURA), `Ruptura (página ${pagina + 1})`),
+        )
+        rupturaRows.push(...pacote)
+        if (pacote.length < TAM_RUPTURA) break
+      }
 
-    // Substitui o snapshot anterior por completo
-    await admin.from('erp_estoque_snapshot').delete().neq('cod_item', '__nenhum__')
+      rupturas = rupturaRows
+      .map(([unid, cod, descricao, dpto, dptoNome, fornecedor, est, ctm, prv]) => {
+        const vendas = vendasMap.get(`${String(unid).trim()}|${String(cod).trim()}`) ?? 0
+        const vmd = vendas / janelaDias
+        const preco = Number(prv) || 0
+        return {
+          sync_id: syncId!,
+          cod_unidade: String(unid ?? '').trim(),
+          cod_item: String(cod ?? '').trim(),
+          descricao: String(descricao ?? '').trim(),
+          cod_departamento: String(dpto ?? '').trim(),
+          departamento: String(dptoNome ?? '').trim(),
+          fornecedor: String(fornecedor ?? '').trim(),
+          quantidade_estoque: Number(est) || 0,
+          custo_medio: Number(ctm) || 0,
+          preco_venda: preco,
+          vendas_periodo: vendas,
+          dias_periodo: janelaDias,
+          vmd: Number(vmd.toFixed(6)),
+          perda_dia: Number((vmd * preco).toFixed(2)),
+          regra_versao: regra.versao,
+        }
+      })
+      .filter((r) => r.cod_item && r.cod_unidade)
 
-    const CHUNK = 1000
-    for (let i = 0; i < calculadas.length; i += CHUNK) {
-      const { error } = await admin
-        .from('erp_estoque_snapshot')
-        .upsert(calculadas.slice(i, i + CHUNK), { onConflict: 'cod_unidade,cod_item' })
-      if (error) throw new Error(`Falha ao gravar snapshot: ${error.message}`)
+      await admin.from('erp_ruptura_snapshot').delete().neq('cod_item', '__nenhum__')
+      const lotes: Promise<any>[] = []
+      for (let i = 0; i < rupturas.length; i += CHUNK) {
+        lotes.push(admin.from('erp_ruptura_snapshot').insert(rupturas.slice(i, i + CHUNK)))
+      }
+      const resultados = await Promise.all(lotes)
+      const falha = resultados.find((r: any) => r.error)
+      if (falha) throw new Error(`Falha ao gravar ruptura: ${falha.error.message}`)
     }
 
     await admin.from('erp_sync_log').update({
       status: 'concluido',
-      linhas: calculadas.length,
+      linhas: etapa === 'ruptura' ? rupturas.length : calculadas.length,
       finalizado_em: new Date().toISOString(),
     }).eq('id', syncId)
 
-    return json({ ok: true, linhas: calculadas.length, regra_versao: regra.versao, sync_id: syncId })
+    return json({ ok: true, etapa, linhas: calculadas.length, rupturas: rupturas.length, regra_versao: regra.versao, sync_id: syncId })
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     console.error('erp-sync error:', message)
