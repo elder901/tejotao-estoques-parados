@@ -116,9 +116,11 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = (req.headers.get('Authorization') ?? '').replace('Bearer ', '')
+    const cronSecret = Deno.env.get('ERP_SYNC_CRON_SECRET')
+    const cronHeader = req.headers.get('x-cron-secret')
     let disparadoPor: string | null = null
 
-    if (authHeader && authHeader === serviceKey) {
+    if ((cronSecret && cronHeader === cronSecret) || (authHeader && authHeader === serviceKey)) {
       // chamada agendada (cron)
     } else {
       if (!authHeader) return json({ error: 'Não autorizado' }, 401)
