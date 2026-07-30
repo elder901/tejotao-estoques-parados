@@ -55,13 +55,6 @@ const Index = () => {
         setLoading(false);
       });
 
-    const legacy = () => Promise.resolve();
-    legacy()
-      .then((data) => {
-        void data;
-      })
-      .catch(() => {});
-
     // Upload info is non-critical, load separately with timeout
     const infoTimeout = Promise.race([
       getLatestUploadInfo(),
