@@ -147,15 +147,39 @@ Deno.serve(async (req) => {
 
     const token = await getErpToken(admin)
     await initializeMcp(token)
-    const rows = await runErpSql(
-      token,
-      montarSql(params),
-      `Snapshot de estoque parado (regra v${regra.versao})`,
-    )
 
-    const calculadas = rows
-      .map((r) => calcularLinha(r, params, regra.versao, syncId!))
-      .filter((r) => r.cod_item && r.cod_unidade)
+    // 1) Vendas do período agregadas por unidade + item
+    const vendasRows = desempacotar(
+      await runErpSql(token, sqlVendas(params), `Vendas do período (regra v${regra.versao})`),
+    )
+    const vendasMap = new Map<string, number>()
+    for (const [unid, cod, qtde] of vendasRows) {
+      vendasMap.set(`${String(unid).trim()}|${String(cod).trim()}`, Number(qtde) || 0)
+    }
+
+    // 2) Estoque atual + dimensões, em páginas
+    const TAM_PAGINA = 20000
+    const limite = Math.min(60000, Math.max(100, Math.floor(Number(params.limite_linhas) || 25000)))
+    const estoqueRows: any[][] = []
+    for (let pagina = 0; estoqueRows.length < limite; pagina++) {
+      const pacote = desempacotar(
+        await runErpSql(token, sqlEstoque(params, pagina, TAM_PAGINA), `Estoque atual (página ${pagina + 1})`),
+      )
+      estoqueRows.push(...pacote)
+      if (pacote.length < TAM_PAGINA) break
+    }
+
+    const calculadas = estoqueRows.slice(0, limite).map(([unid, cod, descricao, dpto, dptoNome, fornecedor, est, ctm]) =>
+      calcularLinha(
+        {
+          unid, cod, descricao, dpto, dpto_nome: dptoNome, fornecedor, est, ctm,
+          vendas: vendasMap.get(`${String(unid).trim()}|${String(cod).trim()}`) ?? 0,
+        },
+        params,
+        regra.versao,
+        syncId!,
+      ),
+    ).filter((r) => r.cod_item && r.cod_unidade)
 
     // Substitui o snapshot anterior por completo
     await admin.from('erp_estoque_snapshot').delete().neq('cod_item', '__nenhum__')
