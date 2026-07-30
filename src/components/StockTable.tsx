@@ -29,6 +29,8 @@ export function StockTable({ items, onSelectItem, actionPlanKeys }: StockTablePr
               <TableHead className="text-xs font-bold">Departamento</TableHead>
               <TableHead className="text-xs font-bold">Fornecedor</TableHead>
               <TableHead className="text-xs font-bold text-right">Estoque (R$)</TableHead>
+              <TableHead className="text-xs font-bold text-right">Vendas 90d (qtd)</TableHead>
+              <TableHead className="text-xs font-bold text-right">VMD (qtd/dia)</TableHead>
               <TableHead className="text-xs font-bold text-center">Dias Estoque</TableHead>
               <TableHead className="text-xs font-bold text-right">Qtd Estoque</TableHead>
               <TableHead className="text-xs font-bold text-center">Giro</TableHead>
@@ -52,6 +54,8 @@ export function StockTable({ items, onSelectItem, actionPlanKeys }: StockTablePr
                   <TableCell className="text-xs">{item.departamento}</TableCell>
                   <TableCell className="text-xs max-w-[180px] truncate">{item.fornecedor}</TableCell>
                   <TableCell className="text-xs text-right font-semibold">{formatCurrency(item.estoqueCustoMedio)}</TableCell>
+                  <TableCell className="text-xs text-right">{formatNumber(item.vendasQuantidade, 0)}</TableCell>
+                  <TableCell className="text-xs text-right">{formatNumber(item.diasPeriodo > 0 ? item.vendasQuantidade / item.diasPeriodo : 0, 2)}</TableCell>
                   <TableCell className="text-center">{getDiasBadge(item.diasEstoque)}</TableCell>
                   <TableCell className="text-xs text-right">{formatNumber(item.quantidadeEstoque, 0)}</TableCell>
                   <TableCell className="text-xs text-center">{formatNumber(item.giro)}</TableCell>
@@ -70,7 +74,7 @@ export function StockTable({ items, onSelectItem, actionPlanKeys }: StockTablePr
             })}
             {items.length === 0 && (
               <TableRow>
-                <TableCell colSpan={12} className="text-center py-10 text-muted-foreground">
+                <TableCell colSpan={14} className="text-center py-10 text-muted-foreground">
                   Nenhum item encontrado com os filtros selecionados.
                 </TableCell>
               </TableRow>
