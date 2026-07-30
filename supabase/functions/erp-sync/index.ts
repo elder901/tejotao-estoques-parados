@@ -95,12 +95,6 @@ export function sqlRuptura(pagina: number, tamanho: number) {
   )
 }
 
-function desempacotarAntigo(rows: any[]): any[][] {
-  const texto = rows?.[0]?.pacote
-  if (!texto) return []
-  return JSON.parse(texto)
-}
-
 /** Aplica a regra de giro sobre uma linha bruta do ERP. */
 export function calcularLinha(row: any, p: RegraParams, versao: number, syncId: string) {
   const janela = Math.max(1, Math.floor(Number(p.janela_dias) || 90))
