@@ -65,7 +65,7 @@ export function sqlEstoque(p: RegraParams, pagina: number, tamanho: number) {
     'FROM produn pu ' +
     'JOIN produtos pr ON pr.prod_codigo = pu.prun_prod_codigo ' +
     'LEFT JOIN departamentos d ON d.dpto_codigo = pr.prod_dpto_codigo ' +
-    'LEFT JOIN fornecedores f ON f.forn_codigo = pu.prun_forn_codigo ' +
+    'LEFT JOIN fornecedores f ON f.forn_codigo = pr.prod_forn_codigo ' +
     filtro +
     `ORDER BY pu.prun_estoque1 * pu.prun_ctmedio DESC LIMIT ${tamanho} OFFSET ${pagina * tamanho}) x`
   )
