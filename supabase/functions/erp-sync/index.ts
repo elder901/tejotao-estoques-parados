@@ -25,34 +25,56 @@ export interface RegraParams {
   faixas_dias?: { rotulo: string; min: number; max: number | null }[]
 }
 
-/** Monta o SQL do ERP a partir dos parâmetros da regra ativa. Fonte única da verdade. */
-export function montarSql(p: RegraParams) {
-  const tipos = (p.tipos_venda ?? ['EVD', 'EVL', 'EVP'])
-    .map((t) => `'${String(t).replace(/[^A-Za-z0-9_]/g, '')}'`)
-    .join(',')
-  const janela = Math.max(1, Math.floor(Number(p.janela_dias) || 90))
-  const status = String(p.status_movimento ?? 'N').replace(/[^A-Za-z]/g, '') || 'N'
-  const limite = Math.min(60000, Math.max(100, Math.floor(Number(p.limite_linhas) || 20000)))
-  const filtroEstoque = p.somente_estoque_positivo === false ? '' : 'WHERE pu.prun_estoque1 > 0 '
+// O ERP corta a resposta em 200 linhas por consulta, então empacotamos o
+// resultado em UMA linha JSON (json_agg) e desempacotamos aqui.
 
+function limparParams(p: RegraParams) {
+  return {
+    tipos: (p.tipos_venda ?? ['EVD', 'EVL', 'EVP'])
+      .map((t) => `'${String(t).replace(/[^A-Za-z0-9_]/g, '')}'`)
+      .join(','),
+    janela: Math.max(1, Math.floor(Number(p.janela_dias) || 90)),
+    status: String(p.status_movimento ?? 'N').replace(/[^A-Za-z]/g, '') || 'N',
+    limite: Math.min(60000, Math.max(100, Math.floor(Number(p.limite_linhas) || 25000))),
+    somentePositivo: p.somente_estoque_positivo !== false,
+  }
+}
+
+/** SQL das vendas do período, agregadas por unidade + item. */
+export function sqlVendas(p: RegraParams) {
+  const { tipos, janela, status } = limparParams(p)
   return (
+    'SELECT json_agg(json_build_array(x.unid, x.cod, x.vendas))::text AS pacote FROM (' +
+    'SELECT m.mprd_unid_codigo AS unid, m.mprd_prod_codigo AS cod, SUM(m.mprd_qtde) AS vendas ' +
+    'FROM public.fact_movprodd m ' +
+    `WHERE m.mprd_dcto_tipo IN (${tipos}) AND m.mprd_status = '${status}' ` +
+    `AND m.mprd_datamvto >= current_date - ${janela} GROUP BY 1,2) x`
+  )
+}
+
+/** SQL do estoque atual + dimensões, paginado por valor de estoque. */
+export function sqlEstoque(p: RegraParams, pagina: number, tamanho: number) {
+  const { somentePositivo } = limparParams(p)
+  const filtro = somentePositivo ? 'WHERE pu.prun_estoque1 > 0 ' : ''
+  return (
+    'SELECT json_agg(json_build_array(x.unid, x.cod, x.descricao, x.dpto, x.dpto_nome, x.fornecedor, x.est, x.ctm))::text AS pacote FROM (' +
     'SELECT pu.prun_unid_codigo AS unid, pu.prun_prod_codigo AS cod, ' +
     'pr.prod_descricao AS descricao, pr.prod_dpto_codigo AS dpto, ' +
     'd.dpto_descricao AS dpto_nome, f.forn_nome AS fornecedor, ' +
-    'pu.prun_estoque1 AS est, pu.prun_ctmedio AS ctm, ' +
-    'ROUND(pu.prun_estoque1 * pu.prun_ctmedio, 2) AS valor_est, ' +
-    'COALESCE((SELECT SUM(m.mprd_qtde) FROM public.fact_movprodd m ' +
-    `WHERE m.mprd_dcto_tipo IN (${tipos}) AND m.mprd_status = '${status}' ` +
-    `AND m.mprd_datamvto >= current_date - ${janela} ` +
-    'AND m.mprd_unid_codigo = pu.prun_unid_codigo ' +
-    'AND m.mprd_prod_codigo = pu.prun_prod_codigo), 0) AS vendas ' +
+    'pu.prun_estoque1 AS est, pu.prun_ctmedio AS ctm ' +
     'FROM produn pu ' +
     'JOIN produtos pr ON pr.prod_codigo = pu.prun_prod_codigo ' +
     'LEFT JOIN departamentos d ON d.dpto_codigo = pr.prod_dpto_codigo ' +
     'LEFT JOIN fornecedores f ON f.forn_codigo = pu.prun_forn_codigo ' +
-    filtroEstoque +
-    `ORDER BY valor_est DESC LIMIT ${limite}`
+    filtro +
+    `ORDER BY pu.prun_estoque1 * pu.prun_ctmedio DESC LIMIT ${tamanho} OFFSET ${pagina * tamanho}) x`
   )
+}
+
+function desempacotar(rows: any[]): any[][] {
+  const texto = rows?.[0]?.pacote
+  if (!texto) return []
+  return JSON.parse(texto)
 }
 
 /** Aplica a regra de giro sobre uma linha bruta do ERP. */
