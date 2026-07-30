@@ -86,6 +86,63 @@ export type Database = {
         }
         Relationships: []
       }
+      erp_mcp_connection: {
+        Row: {
+          access_token: string | null
+          client_id: string | null
+          client_secret: string | null
+          code_verifier: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          issuer: string | null
+          last_error: string | null
+          owner_id: string
+          redirect_uri: string | null
+          refresh_token: string | null
+          server_url: string
+          state: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string | null
+          client_id?: string | null
+          client_secret?: string | null
+          code_verifier?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          issuer?: string | null
+          last_error?: string | null
+          owner_id: string
+          redirect_uri?: string | null
+          refresh_token?: string | null
+          server_url: string
+          state?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string | null
+          client_id?: string | null
+          client_secret?: string | null
+          code_verifier?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          issuer?: string | null
+          last_error?: string | null
+          owner_id?: string
+          redirect_uri?: string | null
+          refresh_token?: string | null
+          server_url?: string
+          state?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
