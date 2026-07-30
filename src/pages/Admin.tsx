@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { ArrowLeft, Loader2, UserPlus, Shield, Upload, FileSpreadsheet, CalendarDays, Pencil, KeyRound, Trash2, PlugZap } from 'lucide-react';
+import { ArrowLeft, Loader2, UserPlus, Shield, Upload, FileSpreadsheet, CalendarDays, Pencil, KeyRound, Trash2, PlugZap, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface UserProfile {
@@ -307,6 +307,9 @@ const Admin = () => {
             </div>
             <Button variant="ghost" size="sm" onClick={() => navigate('/erp')} className="text-primary-foreground hover:bg-primary-foreground/10">
               <PlugZap className="h-4 w-4 mr-1" /> Conexão ERP
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/erp-dados')} className="text-primary-foreground hover:bg-primary-foreground/10">
+              <RefreshCw className="h-4 w-4 mr-1" /> Dados e Regras
             </Button>
           </div>
         </div>
