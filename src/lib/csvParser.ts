@@ -93,10 +93,16 @@ function parseCSVText(text: string, unitCode: string): StockItem[] {
 
 async function loadFromStorage(storagePath: string, unitCode: string): Promise<StockItem[]> {
   try {
-    const { data } = supabase.storage.from('csv-files').getPublicUrl(storagePath);
+    const { data, error } = await supabase.storage
+      .from('csv-files')
+      .createSignedUrl(storagePath, 60);
+    if (error || !data?.signedUrl) {
+      console.warn(`Failed to sign ${storagePath}:`, error?.message);
+      return [];
+    }
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
-    const response = await fetch(data.publicUrl, { signal: controller.signal });
+    const response = await fetch(data.signedUrl, { signal: controller.signal });
     clearTimeout(timeoutId);
     if (!response.ok) {
       console.warn(`Failed to load ${storagePath}: ${response.status}`);
