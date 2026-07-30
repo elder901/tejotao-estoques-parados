@@ -15,20 +15,22 @@ export interface ErpSyncInfo {
 }
 
 const PAGE = 1000;
-const MAX_ITENS = 10000;
+const MAX_ITENS = 6000;
 
 /** Carrega o snapshot calculado a partir do ERP (já com giro e dias de estoque). */
 export async function loadErpData(): Promise<StockItem[]> {
-  const items: StockItem[] = [];
-  for (let page = 0; page * PAGE < MAX_ITENS; page++) {
-    const { data, error } = await supabase
+  const paginas = Array.from({ length: MAX_ITENS / PAGE }, (_, page) =>
+    supabase
       .from('erp_estoque_snapshot')
       .select('cod_item, descricao, cod_unidade, departamento, fornecedor, quantidade_estoque, custo_medio, valor_estoque, vendas_periodo, dias_periodo, vmd, dias_estoque')
       .order('valor_estoque', { ascending: false })
-      .range(page * PAGE, page * PAGE + PAGE - 1);
+      .range(page * PAGE, page * PAGE + PAGE - 1),
+  );
+  const resultados = await Promise.all(paginas);
+  const items: StockItem[] = [];
+  for (const { data, error } of resultados) {
     if (error) throw error;
-    if (!data || data.length === 0) break;
-    for (const r of data) {
+    for (const r of data ?? []) {
       const diasPeriodo = r.dias_periodo || 90;
       items.push({
         diasEstoque: Number(r.dias_estoque) || 0,
@@ -54,7 +56,6 @@ export async function loadErpData(): Promise<StockItem[]> {
         vdMedia365: Number(r.vmd) * 365,
       });
     }
-    if (data.length < PAGE) break;
   }
   return items;
 }
