@@ -86,6 +86,80 @@ export type Database = {
         }
         Relationships: []
       }
+      erp_estoque_snapshot: {
+        Row: {
+          cod_departamento: string
+          cod_item: string
+          cod_unidade: string
+          created_at: string
+          custo_medio: number
+          data_referencia: string
+          departamento: string
+          descricao: string
+          dias_estoque: number
+          dias_periodo: number
+          fornecedor: string
+          id: string
+          quantidade_estoque: number
+          regra_versao: number
+          sem_giro: boolean
+          sync_id: string | null
+          valor_estoque: number
+          vendas_periodo: number
+          vmd: number
+        }
+        Insert: {
+          cod_departamento?: string
+          cod_item: string
+          cod_unidade: string
+          created_at?: string
+          custo_medio?: number
+          data_referencia?: string
+          departamento?: string
+          descricao?: string
+          dias_estoque?: number
+          dias_periodo?: number
+          fornecedor?: string
+          id?: string
+          quantidade_estoque?: number
+          regra_versao?: number
+          sem_giro?: boolean
+          sync_id?: string | null
+          valor_estoque?: number
+          vendas_periodo?: number
+          vmd?: number
+        }
+        Update: {
+          cod_departamento?: string
+          cod_item?: string
+          cod_unidade?: string
+          created_at?: string
+          custo_medio?: number
+          data_referencia?: string
+          departamento?: string
+          descricao?: string
+          dias_estoque?: number
+          dias_periodo?: number
+          fornecedor?: string
+          id?: string
+          quantidade_estoque?: number
+          regra_versao?: number
+          sem_giro?: boolean
+          sync_id?: string | null
+          valor_estoque?: number
+          vendas_periodo?: number
+          vmd?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "erp_estoque_snapshot_sync_id_fkey"
+            columns: ["sync_id"]
+            isOneToOne: false
+            referencedRelation: "erp_sync_log"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       erp_mcp_connection: {
         Row: {
           access_token: string | null
@@ -143,6 +217,42 @@ export type Database = {
         }
         Relationships: []
       }
+      erp_sync_log: {
+        Row: {
+          created_at: string
+          disparado_por: string | null
+          erro: string | null
+          finalizado_em: string | null
+          id: string
+          iniciado_em: string
+          linhas: number
+          regra_versao: number | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          disparado_por?: string | null
+          erro?: string | null
+          finalizado_em?: string | null
+          id?: string
+          iniciado_em?: string
+          linhas?: number
+          regra_versao?: number | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          disparado_por?: string | null
+          erro?: string | null
+          finalizado_em?: string | null
+          id?: string
+          iniciado_em?: string
+          linhas?: number
+          regra_versao?: number | null
+          status?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -161,6 +271,36 @@ export type Database = {
           id?: string
           is_admin?: boolean
           name?: string
+        }
+        Relationships: []
+      }
+      regras_versoes: {
+        Row: {
+          ativa: boolean
+          created_at: string
+          criado_por: string | null
+          id: string
+          motivo: string
+          parametros: Json
+          versao: number
+        }
+        Insert: {
+          ativa?: boolean
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          motivo?: string
+          parametros: Json
+          versao: number
+        }
+        Update: {
+          ativa?: boolean
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          motivo?: string
+          parametros?: Json
+          versao?: number
         }
         Relationships: []
       }
