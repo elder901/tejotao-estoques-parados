@@ -43,6 +43,7 @@ export default function ErpSync() {
   const [janela, setJanela] = useState('90');
   const [tipos, setTipos] = useState('EVD, EVL, EVP');
   const [diasCriticos, setDiasCriticos] = useState('90');
+  const [status, setStatus] = useState('N');
   const [limite, setLimite] = useState('25000');
   const [descricao, setDescricao] = useState('');
 
@@ -60,6 +61,7 @@ export default function ErpSync() {
       setJanela(String(a.parametros.janela_dias ?? 90));
       setTipos((a.parametros.tipos_venda ?? ['EVD', 'EVL', 'EVP']).join(', '));
       setDiasCriticos(String(a.parametros.dias_criticos ?? 90));
+      setStatus(String(a.parametros.status_movimento ?? 'N'));
       setLimite(String(a.parametros.limite_linhas ?? 25000));
     }
   };
@@ -94,6 +96,7 @@ export default function ErpSync() {
         janela_dias: Number(janela) || 90,
         tipos_venda: tipos.split(',').map((t) => t.trim().toUpperCase()).filter(Boolean),
         dias_criticos: Number(diasCriticos) || 90,
+        status_movimento: (status.trim().toUpperCase() || 'N').slice(0, 1),
         limite_linhas: Number(limite) || 25000,
       };
       const proxima = Math.max(0, ...regras.map((r) => r.versao)) + 1;
@@ -181,6 +184,7 @@ export default function ErpSync() {
             <Campo label="Janela de vendas (dias)" value={janela} onChange={setJanela} />
             <Campo label="Tipos de movimento de venda" value={tipos} onChange={setTipos} />
             <Campo label="Item crítico a partir de (dias)" value={diasCriticos} onChange={setDiasCriticos} />
+            <Campo label="Status do movimento (N = normal; C = cancelada é sempre excluída)" value={status} onChange={setStatus} />
             <Campo label="Máximo de itens no snapshot" value={limite} onChange={setLimite} />
             <div className="sm:col-span-2">
               <label className="text-xs font-medium">Motivo da mudança (obrigatório)</label>
