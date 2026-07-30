@@ -217,6 +217,69 @@ export type Database = {
         }
         Relationships: []
       }
+      erp_ruptura_snapshot: {
+        Row: {
+          cod_departamento: string
+          cod_item: string
+          cod_unidade: string
+          created_at: string
+          custo_medio: number
+          data_referencia: string
+          departamento: string
+          descricao: string
+          dias_periodo: number
+          fornecedor: string
+          id: string
+          perda_dia: number
+          preco_venda: number
+          quantidade_estoque: number
+          regra_versao: number
+          sync_id: string | null
+          vendas_periodo: number
+          vmd: number
+        }
+        Insert: {
+          cod_departamento?: string
+          cod_item: string
+          cod_unidade: string
+          created_at?: string
+          custo_medio?: number
+          data_referencia?: string
+          departamento?: string
+          descricao?: string
+          dias_periodo?: number
+          fornecedor?: string
+          id?: string
+          perda_dia?: number
+          preco_venda?: number
+          quantidade_estoque?: number
+          regra_versao?: number
+          sync_id?: string | null
+          vendas_periodo?: number
+          vmd?: number
+        }
+        Update: {
+          cod_departamento?: string
+          cod_item?: string
+          cod_unidade?: string
+          created_at?: string
+          custo_medio?: number
+          data_referencia?: string
+          departamento?: string
+          descricao?: string
+          dias_periodo?: number
+          fornecedor?: string
+          id?: string
+          perda_dia?: number
+          preco_venda?: number
+          quantidade_estoque?: number
+          regra_versao?: number
+          sync_id?: string | null
+          vendas_periodo?: number
+          vmd?: number
+        }
+        Relationships: []
+      }
       erp_sync_log: {
         Row: {
           created_at: string
