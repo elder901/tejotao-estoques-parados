@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { loadAllData, StockItem, getUniqueDepartments, getUniqueSuppliers, getUniqueUnits, formatCurrency, formatNumber, getLatestUploadInfo, type CsvUploadInfo } from '@/lib/csvParser';
 import { getActionPlans } from '@/lib/actionPlanStore';
+import { loadErpData, getLastSync, type ErpSyncInfo } from '@/lib/erpData';
 import { FilterBar, type DaysRange } from '@/components/FilterBar';
 import { StockTable } from '@/components/StockTable';
 import { ItemDrilldown } from '@/components/ItemDrilldown';
@@ -23,6 +24,8 @@ const Index = () => {
   const [selectedDaysRanges, setSelectedDaysRanges] = useState<DaysRange[]>([]);
   const [supplierSearch, setSupplierSearch] = useState('');
   const [uploadInfo, setUploadInfo] = useState<CsvUploadInfo | null>(null);
+  const [syncInfo, setSyncInfo] = useState<ErpSyncInfo | null>(null);
+  const [fonte, setFonte] = useState<'erp' | 'arquivo'>('arquivo');
   const [actionPlanKeys, setActionPlanKeys] = useState<Set<string>>(new Set());
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -30,22 +33,34 @@ const Index = () => {
       setLoading(false);
     }, 15000);
 
-    // Load data and upload info independently to avoid one blocking the other
-    loadAllData()
-      .then((data) => {
-        console.log(`[Index] Data loaded: ${data.length} items`);
-        setAllItems(data);
-        if (data.length === 0) {
-          console.warn('[Index] No data loaded from any source');
+    // Fonte principal: snapshot do ERP. Se estiver vazio, cai para os arquivos TXT.
+    loadErpData()
+      .then(async (erpItems) => {
+        if (erpItems.length > 0) {
+          setFonte('erp');
+          setAllItems(erpItems);
+          getLastSync().then((s) => s && setSyncInfo(s)).catch(() => {});
+          return;
         }
+        setFonte('arquivo');
+        return loadAllData().then((data) => setAllItems(data));
       })
       .catch((err) => {
-        console.error('[Index] Error loading data:', err);
+        console.error('[Index] Erro ao carregar do ERP, usando arquivos:', err);
+        setFonte('arquivo');
+        return loadAllData().then((data) => setAllItems(data)).catch(() => {});
       })
       .finally(() => {
         clearTimeout(timeout);
         setLoading(false);
       });
+
+    const legacy = () => Promise.resolve();
+    legacy()
+      .then((data) => {
+        void data;
+      })
+      .catch(() => {});
 
     // Upload info is non-critical, load separately with timeout
     const infoTimeout = Promise.race([
@@ -182,7 +197,13 @@ const Index = () => {
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Supermercado Tejotão</h1>
               <p className="text-primary-foreground/70 text-xs sm:text-sm mt-0.5 flex items-center gap-1">
                 Gestão de Estoques Parados — Plano de Ação
-                {uploadInfo && (
+                {fonte === 'erp' && syncInfo && (
+                  <span className="ml-2 bg-primary-foreground/15 rounded px-2 py-0.5 text-xs font-medium inline-flex items-center gap-1">
+                    <CalendarDays className="h-3 w-3" />
+                    ERP · atualizado em {syncInfo.finalizado_em ? new Date(syncInfo.finalizado_em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—'} · regra v{syncInfo.regra_versao}
+                  </span>
+                )}
+                {fonte === 'arquivo' && uploadInfo && (
                   <span className="ml-2 bg-primary-foreground/15 rounded px-2 py-0.5 text-xs font-medium inline-flex items-center gap-1">
                     <CalendarDays className="h-3 w-3" />
                     Período: {uploadInfo.periodo_referencia}
