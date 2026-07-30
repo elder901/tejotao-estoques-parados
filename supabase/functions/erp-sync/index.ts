@@ -89,7 +89,7 @@ export function sqlRuptura(pagina: number, tamanho: number) {
     'FROM produn pu ' +
     'JOIN produtos pr ON pr.prod_codigo = pu.prun_prod_codigo ' +
     'LEFT JOIN departamentos d ON d.dpto_codigo = pr.prod_dpto_codigo ' +
-    'LEFT JOIN fornecedores f ON f.forn_codigo = pr.prod_forn_codigo ' +
+    'LEFT JOIN fornecedores f ON f.forn_codigo = coalesce(nullif(pr.prod_forn_codigo, 0), nullif(pu.prun_forn_codigo, 0)) ' +
     "WHERE pu.prun_estoque1 <= 0 AND coalesce(pu.prun_bloqueado, 'N') = 'N' " +
     `ORDER BY pu.prun_unid_codigo, pu.prun_prod_codigo LIMIT ${tamanho} OFFSET ${pagina * tamanho}) x`
   )
