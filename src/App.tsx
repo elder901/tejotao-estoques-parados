@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import ActionPlans from "./pages/ActionPlans";
 import Login from "./pages/Login";
 import Admin from "./pages/Admin";
+import ErpConnect from "./pages/ErpConnect";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/planos" element={<ProtectedRoute><ActionPlans /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+            <Route path="/erp" element={<ProtectedRoute><ErpConnect /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
