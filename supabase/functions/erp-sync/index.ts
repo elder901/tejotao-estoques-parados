@@ -184,7 +184,7 @@ Deno.serve(async (req) => {
     // Substitui o snapshot anterior por completo
     await admin.from('erp_estoque_snapshot').delete().neq('cod_item', '__nenhum__')
 
-    const CHUNK = 500
+    const CHUNK = 1000
     for (let i = 0; i < calculadas.length; i += CHUNK) {
       const { error } = await admin
         .from('erp_estoque_snapshot')
