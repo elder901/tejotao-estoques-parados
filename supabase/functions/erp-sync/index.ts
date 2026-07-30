@@ -212,13 +212,58 @@ Deno.serve(async (req) => {
       if (error) throw new Error(`Falha ao gravar snapshot: ${error.message}`)
     }
 
+    // 3) Ruptura: itens com estoque zerado que NÃO estão bloqueados (ou seja, vendemos)
+    const janelaDias = Math.max(1, Math.floor(Number(params.janela_dias) || 90))
+    const TAM_RUPTURA = 20000
+    const rupturaRows: any[][] = []
+    for (let pagina = 0; pagina < 6; pagina++) {
+      const pacote = desempacotar(
+        await runErpSql(token, sqlRuptura(pagina, TAM_RUPTURA), `Ruptura (página ${pagina + 1})`),
+      )
+      rupturaRows.push(...pacote)
+      if (pacote.length < TAM_RUPTURA) break
+    }
+
+    const rupturas = rupturaRows
+      .map(([unid, cod, descricao, dpto, dptoNome, fornecedor, est, ctm, prv]) => {
+        const vendas = vendasMap.get(`${String(unid).trim()}|${String(cod).trim()}`) ?? 0
+        const vmd = vendas / janelaDias
+        const preco = Number(prv) || 0
+        return {
+          sync_id: syncId!,
+          cod_unidade: String(unid ?? '').trim(),
+          cod_item: String(cod ?? '').trim(),
+          descricao: String(descricao ?? '').trim(),
+          cod_departamento: String(dpto ?? '').trim(),
+          departamento: String(dptoNome ?? '').trim(),
+          fornecedor: String(fornecedor ?? '').trim(),
+          quantidade_estoque: Number(est) || 0,
+          custo_medio: Number(ctm) || 0,
+          preco_venda: preco,
+          vendas_periodo: vendas,
+          dias_periodo: janelaDias,
+          vmd: Number(vmd.toFixed(6)),
+          perda_dia: Number((vmd * preco).toFixed(2)),
+          regra_versao: regra.versao,
+        }
+      })
+      .filter((r) => r.cod_item && r.cod_unidade)
+
+    await admin.from('erp_ruptura_snapshot').delete().neq('cod_item', '__nenhum__')
+    for (let i = 0; i < rupturas.length; i += CHUNK) {
+      const { error } = await admin
+        .from('erp_ruptura_snapshot')
+        .upsert(rupturas.slice(i, i + CHUNK), { onConflict: 'cod_unidade,cod_item' })
+      if (error) throw new Error(`Falha ao gravar ruptura: ${error.message}`)
+    }
+
     await admin.from('erp_sync_log').update({
       status: 'concluido',
       linhas: calculadas.length,
       finalizado_em: new Date().toISOString(),
     }).eq('id', syncId)
 
-    return json({ ok: true, linhas: calculadas.length, regra_versao: regra.versao, sync_id: syncId })
+    return json({ ok: true, linhas: calculadas.length, rupturas: rupturas.length, regra_versao: regra.versao, sync_id: syncId })
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     console.error('erp-sync error:', message)
