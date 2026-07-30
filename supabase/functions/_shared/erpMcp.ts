@@ -94,6 +94,7 @@ export async function runErpSql(token: string, query: string, purpose: string): 
   if (rpc?.error) throw new Error(rpc.error.message ?? 'Erro ao consultar o ERP')
   const text = rpc?.result?.content?.[0]?.text
   if (!text) throw new Error('O ERP não devolveu dados')
+  if (typeof text === 'string' && text.trim().startsWith('Erro:')) throw new Error(text)
   let payload: any
   try {
     payload = JSON.parse(text)
@@ -103,6 +104,5 @@ export async function runErpSql(token: string, query: string, purpose: string): 
   if (payload?.ok === false || payload?.error) {
     throw new Error(payload.error ?? 'Consulta recusada pelo ERP')
   }
-  if (typeof text === 'string' && text.startsWith('Erro:')) throw new Error(text)
   return payload.rows ?? []
 }
