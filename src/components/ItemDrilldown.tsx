@@ -126,7 +126,9 @@ export function ItemDrilldown({ item, open, onClose, onPlanChanged }: ItemDrilld
               <MetricCard label="Dias Estoque" value={formatNumber(item.diasEstoque, 0)} danger={item.diasEstoque >= 90} warning={item.diasEstoque >= 45 && item.diasEstoque < 90} />
               <MetricCard label="Qtd Estoque" value={formatNumber(item.quantidadeEstoque, 0)} />
               <MetricCard label="Giro" value={formatNumber(item.giro)} />
-              <MetricCard label="Vendas (R$)" value={formatCurrency(item.vendasCustoMedio)} />
+              <MetricCard label="Vendas 90d (qtd)" value={formatNumber(item.vendasQuantidade, 0)} />
+              <MetricCard label="VMD (qtd/dia)" value={formatNumber(item.diasPeriodo > 0 ? item.vendasQuantidade / item.diasPeriodo : 0, 2)} />
+              <MetricCard label="Vendas (R$ custo)" value={formatCurrency(item.vendasCustoMedio)} />
               <MetricCard label="Vd Média 30d" value={formatNumber(item.vdMedia30)} />
               <MetricCard label="Vd Média 90d" value={formatNumber(item.vdMedia90)} />
               <MetricCard label="Vd Média 365d" value={formatNumber(item.vdMedia365)} />
