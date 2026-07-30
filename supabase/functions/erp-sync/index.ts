@@ -78,6 +78,29 @@ function desempacotar(rows: any[]): any[][] {
   return JSON.parse(texto)
 }
 
+/** SQL da ruptura: estoque zerado (ou negativo) e item NÃO bloqueado (= vendemos). */
+export function sqlRuptura(pagina: number, tamanho: number) {
+  return (
+    'SELECT json_agg(json_build_array(x.unid, x.cod, x.descricao, x.dpto, x.dpto_nome, x.fornecedor, x.est, x.ctm, x.prv))::text AS pacote FROM (' +
+    'SELECT pu.prun_unid_codigo AS unid, pu.prun_prod_codigo AS cod, ' +
+    'pr.prod_descricao AS descricao, pr.prod_dpto_codigo AS dpto, ' +
+    'd.dpto_descricao AS dpto_nome, f.forn_nome AS fornecedor, ' +
+    'pu.prun_estoque1 AS est, pu.prun_ctmedio AS ctm, pu.prun_prvenda AS prv ' +
+    'FROM produn pu ' +
+    'JOIN produtos pr ON pr.prod_codigo = pu.prun_prod_codigo ' +
+    'LEFT JOIN departamentos d ON d.dpto_codigo = pr.prod_dpto_codigo ' +
+    'LEFT JOIN fornecedores f ON f.forn_codigo = pr.prod_forn_codigo ' +
+    "WHERE pu.prun_estoque1 <= 0 AND coalesce(pu.prun_bloqueado, 'N') = 'N' " +
+    `ORDER BY pu.prun_unid_codigo, pu.prun_prod_codigo LIMIT ${tamanho} OFFSET ${pagina * tamanho}) x`
+  )
+}
+
+function desempacotarAntigo(rows: any[]): any[][] {
+  const texto = rows?.[0]?.pacote
+  if (!texto) return []
+  return JSON.parse(texto)
+}
+
 /** Aplica a regra de giro sobre uma linha bruta do ERP. */
 export function calcularLinha(row: any, p: RegraParams, versao: number, syncId: string) {
   const janela = Math.max(1, Math.floor(Number(p.janela_dias) || 90))
