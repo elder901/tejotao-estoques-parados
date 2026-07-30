@@ -13,8 +13,8 @@ interface Regra {
   id: string;
   versao: number;
   ativa: boolean;
-  descricao: string | null;
-  criado_em: string;
+  motivo: string;
+  created_at: string;
   parametros: any;
 }
 
@@ -100,7 +100,7 @@ export default function ErpSync() {
       const { data: { user } } = await supabase.auth.getUser();
       await supabase.from('regras_versoes').update({ ativa: false }).eq('ativa', true);
       const { error } = await supabase.from('regras_versoes').insert({
-        versao: proxima, ativa: true, descricao: descricao.trim(), parametros, criado_por: user?.id ?? null,
+        versao: proxima, ativa: true, motivo: descricao.trim(), parametros, criado_por: user?.id ?? null,
       });
       if (error) throw error;
       toast.success(`Versão ${proxima} publicada. Rode a sincronização para aplicar.`);
@@ -199,8 +199,8 @@ export default function ErpSync() {
               {regras.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="text-xs">v{r.versao} {r.ativa && <Badge className="ml-1">ativa</Badge>}</TableCell>
-                  <TableCell className="text-xs">{r.descricao ?? '—'}</TableCell>
-                  <TableCell className="text-xs">{fmtData(r.criado_em)}</TableCell>
+                  <TableCell className="text-xs">{r.motivo}</TableCell>
+                  <TableCell className="text-xs">{fmtData(r.created_at)}</TableCell>
                   <TableCell className="text-xs text-muted-foreground max-w-[320px] truncate">{JSON.stringify(r.parametros)}</TableCell>
                 </TableRow>
               ))}
