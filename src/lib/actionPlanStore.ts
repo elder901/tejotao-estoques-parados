@@ -35,7 +35,8 @@ export async function getActionPlans(): Promise<ActionPlan[]> {
 
   return data.map((d: any) => ({
     ...d,
-    user_name: profileMap.get(d.user_id) || 'Desconhecido',
+    // profiles are readable only for self/admins; fall back to the plan owner name
+    user_name: profileMap.get(d.user_id) || d.responsavel || 'Desconhecido',
   }));
 }
 
@@ -55,7 +56,7 @@ export async function getActionPlan(codItem: string, codUnidade: string): Promis
     .eq('id', data.user_id)
     .maybeSingle();
 
-  return { ...data, user_name: profile?.name || 'Desconhecido' } as ActionPlan;
+  return { ...data, user_name: profile?.name || data.responsavel || 'Desconhecido' } as ActionPlan;
 }
 
 export async function saveActionPlan(plan: {
