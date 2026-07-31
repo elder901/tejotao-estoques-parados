@@ -146,13 +146,14 @@ const Indicadores = () => {
               <p className="text-xs text-muted-foreground uppercase tracking-wide">{v.subtitulo}</p>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
               {INDICADORES.map((ind) => (
                 <div key={ind.chave} className="rounded-lg border border-border bg-card overflow-hidden">
                   <div className="bg-muted/60 px-3 py-2 text-xs font-bold uppercase tracking-wide text-foreground">
                     {ind.titulo}
                   </div>
-                  <table className="w-full text-xs">
+                  <div className="overflow-x-auto">
+                  <table className="w-full text-xs whitespace-nowrap">
                     <thead>
                       <tr className="text-muted-foreground">
                         <th className="text-left font-medium px-3 py-1.5">Período</th>
@@ -227,6 +228,7 @@ const Indicadores = () => {
                       })()}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               ))}
             </div>
