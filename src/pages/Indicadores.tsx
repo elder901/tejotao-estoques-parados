@@ -110,7 +110,7 @@ const Indicadores = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-primary text-primary-foreground">
-        <div className="max-w-[1400px] mx-auto px-4 py-4 sm:py-5 flex items-center justify-between gap-3">
+        <div className="max-w-[1800px] mx-auto px-4 py-4 sm:py-5 flex items-center justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Fechamento de Indicadores</h1>
             <p className="text-primary-foreground/70 text-xs sm:text-sm mt-0.5">
@@ -133,7 +133,7 @@ const Indicadores = () => {
         </div>
       </header>
 
-      <main className="max-w-[1400px] mx-auto px-4 py-5 space-y-8">
+      <main className="max-w-[1800px] mx-auto px-4 py-5 space-y-8">
         {erro && <p className="text-sm text-destructive">{erro}</p>}
         {!erro && !linhas.length && (
           <p className="text-sm text-muted-foreground">Nenhum indicador sincronizado ainda.</p>
