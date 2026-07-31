@@ -216,6 +216,9 @@ const Index = () => {
               <Button variant="ghost" size="sm" onClick={() => navigate('/ruptura')} className="text-primary-foreground hover:bg-primary-foreground/10 px-2 sm:px-3">
                 <PackageX className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Ruptura</span>
               </Button>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/indicadores')} className="text-primary-foreground hover:bg-primary-foreground/10 px-2 sm:px-3">
+                <BarChart3 className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Indicadores</span>
+              </Button>
               <Button variant="ghost" size="sm" onClick={async () => { await signOut(); navigate('/login'); }} className="text-primary-foreground hover:bg-primary-foreground/10 px-2 sm:px-3">
                 <LogOut className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Sair</span>
               </Button>

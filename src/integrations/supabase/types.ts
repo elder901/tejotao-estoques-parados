@@ -160,6 +160,42 @@ export type Database = {
           },
         ]
       }
+      erp_indicadores_mensal: {
+        Row: {
+          ano_mes: string
+          atualizado_em: string
+          cod_unidade: string
+          cupons: number
+          custo: number
+          dias: number
+          faturamento: number
+          id: string
+          itens: number
+        }
+        Insert: {
+          ano_mes: string
+          atualizado_em?: string
+          cod_unidade: string
+          cupons?: number
+          custo?: number
+          dias?: number
+          faturamento?: number
+          id?: string
+          itens?: number
+        }
+        Update: {
+          ano_mes?: string
+          atualizado_em?: string
+          cod_unidade?: string
+          cupons?: number
+          custo?: number
+          dias?: number
+          faturamento?: number
+          id?: string
+          itens?: number
+        }
+        Relationships: []
+      }
       erp_mcp_connection: {
         Row: {
           access_token: string | null
