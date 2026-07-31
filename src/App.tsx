@@ -11,6 +11,7 @@ import Admin from "./pages/Admin";
 import ErpSync from "./pages/ErpSync";
 import ErpConnect from "./pages/ErpConnect";
 import Ruptura from "./pages/Ruptura";
+import Indicadores from "./pages/Indicadores";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/planos" element={<ProtectedRoute><ActionPlans /></ProtectedRoute>} />
             <Route path="/ruptura" element={<ProtectedRoute><Ruptura /></ProtectedRoute>} />
+            <Route path="/indicadores" element={<ProtectedRoute><Indicadores /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
             <Route path="/erp" element={<ProtectedRoute><ErpConnect /></ProtectedRoute>} />
             <Route path="/erp-dados" element={<ProtectedRoute><ErpSync /></ProtectedRoute>} />
