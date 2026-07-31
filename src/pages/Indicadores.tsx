@@ -110,7 +110,7 @@ const Indicadores = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-primary text-primary-foreground">
-        <div className="max-w-[1400px] mx-auto px-4 py-4 sm:py-5 flex items-center justify-between gap-3">
+        <div className="max-w-[1800px] mx-auto px-4 py-4 sm:py-5 flex items-center justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Fechamento de Indicadores</h1>
             <p className="text-primary-foreground/70 text-xs sm:text-sm mt-0.5">
@@ -133,7 +133,7 @@ const Indicadores = () => {
         </div>
       </header>
 
-      <main className="max-w-[1400px] mx-auto px-4 py-5 space-y-8">
+      <main className="max-w-[1800px] mx-auto px-4 py-5 space-y-8">
         {erro && <p className="text-sm text-destructive">{erro}</p>}
         {!erro && !linhas.length && (
           <p className="text-sm text-muted-foreground">Nenhum indicador sincronizado ainda.</p>
@@ -146,13 +146,14 @@ const Indicadores = () => {
               <p className="text-xs text-muted-foreground uppercase tracking-wide">{v.subtitulo}</p>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
               {INDICADORES.map((ind) => (
                 <div key={ind.chave} className="rounded-lg border border-border bg-card overflow-hidden">
                   <div className="bg-muted/60 px-3 py-2 text-xs font-bold uppercase tracking-wide text-foreground">
                     {ind.titulo}
                   </div>
-                  <table className="w-full text-xs">
+                  <div className="overflow-x-auto">
+                  <table className="w-full text-xs whitespace-nowrap">
                     <thead>
                       <tr className="text-muted-foreground">
                         <th className="text-left font-medium px-3 py-1.5">Período</th>
@@ -227,6 +228,7 @@ const Indicadores = () => {
                       })()}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               ))}
             </div>
