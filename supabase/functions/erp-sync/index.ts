@@ -46,7 +46,7 @@ export function sqlVendas(p: RegraParams) {
   return (
     'SELECT json_agg(json_build_array(x.unid, x.cod, x.vendas))::text AS pacote FROM (' +
     'SELECT m.mprd_unid_codigo AS unid, m.mprd_prod_codigo AS cod, SUM(m.mprd_qtde) AS vendas ' +
-    'FROM public.fact_movprodd m ' +
+    'FROM {{fact_movprodd}} m ' +
     `WHERE m.mprd_dcto_tipo IN (${tipos}) AND m.mprd_status = '${status}' ` +
     "AND m.mprd_status <> 'C' " +
     `AND m.mprd_datamvto >= current_date - ${janela} GROUP BY 1,2) x`
