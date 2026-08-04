@@ -22,7 +22,7 @@ function sqlIndicadores(inicio: string, fim: string) {
     'round(sum(coalesce(mprd_ctmedio,0))::numeric,2) AS custo, ' +
     'round(sum(mprd_qtde)::numeric,3) AS itens, ' +
     'count(DISTINCT mprd_datamvto) AS dias ' +
-    "FROM fact_movprodd WHERE mprd_status = 'N' AND mprd_dcto_tipo IN ('EVD','EVL','EVP') " +
+    "FROM {{fact_movprodd}} WHERE mprd_status = 'N' AND mprd_dcto_tipo IN ('EVD','EVL','EVP') " +
     `AND mprd_datamvto >= date '${inicio}' AND mprd_datamvto < date '${fim}' GROUP BY 1,2) x`
   )
 }
@@ -33,7 +33,7 @@ function sqlCupons(inicio: string, fim: string) {
     'SELECT json_agg(json_build_array(x.unid,x.mes,x.cupons))::text AS pacote FROM (' +
     "SELECT vdet_unid_codigo AS unid, to_char(vdet_datamvto, 'YYYY-MM') AS mes, " +
     'count(DISTINCT (vdet_datamvto::text || vdet_pdv || vdet_cupom)) AS cupons ' +
-    "FROM fact_vdadet WHERE vdet_status = 'N' " +
+    "FROM {{fact_vdadet}} WHERE vdet_status = 'N' " +
     `AND vdet_datamvto >= date '${inicio}' AND vdet_datamvto < date '${fim}' GROUP BY 1,2) x`
   )
 }
