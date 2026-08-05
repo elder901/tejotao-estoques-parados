@@ -64,6 +64,22 @@ const Admin = () => {
 
   const fetchUsers = async () => {
     setLoadingUsers(true);
+    return fetchUsersInner();
+  };
+
+  // Garante um token válido antes de chamar funções administrativas.
+  const invokeAdmin = async (fn: string, body: Record<string, unknown>) => {
+    const { data, error } = await supabase.auth.refreshSession();
+    if (error || !data.session) {
+      await supabase.auth.signOut();
+      navigate('/login');
+      return { error: { message: 'Sessão expirada. Faça login novamente.' }, data: null } as any;
+    }
+    return supabase.functions.invoke(fn, { body });
+  };
+
+  const fetchUsersInner = async () => {
+    setLoadingUsers(true);
     try {
       const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
       if (error) {
