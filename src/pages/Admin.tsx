@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { ArrowLeft, Loader2, UserPlus, Shield, Upload, FileSpreadsheet, CalendarDays, Pencil, KeyRound, Trash2, PlugZap, RefreshCw } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, Loader2, UserPlus, Shield, Upload, FileSpreadsheet, CalendarDays, Pencil, KeyRound, Trash2, PlugZap, RefreshCw, UserCog } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface UserProfile {
@@ -39,6 +40,7 @@ const Admin = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState<'business' | 'admin'>('business');
   const [creating, setCreating] = useState(false);
 
   // User management state
@@ -50,6 +52,8 @@ const Admin = () => {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [deleteUser, setDeleteUser] = useState<UserProfile | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [roleUser, setRoleUser] = useState<UserProfile | null>(null);
+  const [roleSaving, setRoleSaving] = useState(false);
 
   // CSV upload state
   const [periodoRef, setPeriodoRef] = useState('');
@@ -108,26 +112,51 @@ const Admin = () => {
       toast.error('Preencha todos os campos');
       return;
     }
+    if (password.length < 6) {
+      toast.error('A senha deve ter no mínimo 6 caracteres');
+      return;
+    }
     setCreating(true);
     try {
       const res = await supabase.functions.invoke('create-user', {
-        body: { email, password, name: name.trim() },
+        body: { email: email.trim(), password, name: name.trim(), is_admin: role === 'admin' },
       });
       if (res.error) {
         toast.error(res.error.message || 'Erro ao criar usuário');
       } else if (res.data?.error) {
         toast.error(res.data.error);
       } else {
-        toast.success(`Usuário ${name} criado com sucesso!`);
+        toast.success(`Usuário ${name} criado como ${role === 'admin' ? 'Administrador' : 'Business'}!`);
         setName('');
         setEmail('');
         setPassword('');
+        setRole('business');
         fetchUsers();
       }
     } catch (err: any) {
       toast.error(err.message || 'Erro ao criar usuário');
     }
     setCreating(false);
+  };
+
+  const handleToggleRole = async () => {
+    if (!roleUser) return;
+    setRoleSaving(true);
+    try {
+      const res = await supabase.functions.invoke('manage-user', {
+        body: { action: 'update_role', user_id: roleUser.id, is_admin: !roleUser.is_admin },
+      });
+      if (res.error || res.data?.error) {
+        toast.error(res.data?.error || res.error?.message || 'Erro ao alterar perfil');
+      } else {
+        toast.success(`${roleUser.name} agora é ${!roleUser.is_admin ? 'Administrador' : 'Business'}`);
+        setRoleUser(null);
+        fetchUsers();
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao alterar perfil');
+    }
+    setRoleSaving(false);
   };
 
   const handleUpdateName = async () => {
