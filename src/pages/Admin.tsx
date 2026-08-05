@@ -64,6 +64,22 @@ const Admin = () => {
 
   const fetchUsers = async () => {
     setLoadingUsers(true);
+    return fetchUsersInner();
+  };
+
+  // Garante um token válido antes de chamar funções administrativas.
+  const invokeAdmin = async (fn: string, body: Record<string, unknown>) => {
+    const { data, error } = await supabase.auth.refreshSession();
+    if (error || !data.session) {
+      await supabase.auth.signOut();
+      navigate('/login');
+      return { error: { message: 'Sessão expirada. Faça login novamente.' }, data: null } as any;
+    }
+    return supabase.functions.invoke(fn, { body });
+  };
+
+  const fetchUsersInner = async () => {
+    setLoadingUsers(true);
     try {
       const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
       if (error) {
@@ -118,9 +134,7 @@ const Admin = () => {
     }
     setCreating(true);
     try {
-      const res = await supabase.functions.invoke('create-user', {
-        body: { email: email.trim(), password, name: name.trim(), is_admin: role === 'admin' },
-      });
+      const res = await invokeAdmin('create-user', { email: email.trim(), password, name: name.trim(), is_admin: role === 'admin' });
       if (res.error) {
         toast.error(res.error.message || 'Erro ao criar usuário');
       } else if (res.data?.error) {
@@ -143,9 +157,7 @@ const Admin = () => {
     if (!roleUser) return;
     setRoleSaving(true);
     try {
-      const res = await supabase.functions.invoke('manage-user', {
-        body: { action: 'update_role', user_id: roleUser.id, is_admin: !roleUser.is_admin },
-      });
+      const res = await invokeAdmin('manage-user', { action: 'update_role', user_id: roleUser.id, is_admin: !roleUser.is_admin });
       if (res.error || res.data?.error) {
         toast.error(res.data?.error || res.error?.message || 'Erro ao alterar perfil');
       } else {
@@ -163,9 +175,7 @@ const Admin = () => {
     if (!editUser || !editName.trim()) return;
     setEditSaving(true);
     try {
-      const res = await supabase.functions.invoke('manage-user', {
-        body: { action: 'update_name', user_id: editUser.id, name: editName.trim() },
-      });
+      const res = await invokeAdmin('manage-user', { action: 'update_name', user_id: editUser.id, name: editName.trim() });
       if (res.error || res.data?.error) {
         toast.error(res.data?.error || res.error?.message || 'Erro');
       } else {
@@ -182,9 +192,7 @@ const Admin = () => {
     if (newPassword.length < 6) { toast.error('Mínimo 6 caracteres'); return; }
     setPasswordSaving(true);
     try {
-      const res = await supabase.functions.invoke('manage-user', {
-        body: { action: 'update_password', user_id: passwordUser.id, password: newPassword },
-      });
+      const res = await invokeAdmin('manage-user', { action: 'update_password', user_id: passwordUser.id, password: newPassword });
       if (res.error || res.data?.error) {
         toast.error(res.data?.error || res.error?.message || 'Erro');
       } else {
@@ -200,9 +208,7 @@ const Admin = () => {
     if (!deleteUser) return;
     setDeleting(true);
     try {
-      const res = await supabase.functions.invoke('manage-user', {
-        body: { action: 'delete', user_id: deleteUser.id },
-      });
+      const res = await invokeAdmin('manage-user', { action: 'delete', user_id: deleteUser.id });
       if (res.error || res.data?.error) {
         toast.error(res.data?.error || res.error?.message || 'Erro');
       } else {
