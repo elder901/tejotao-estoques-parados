@@ -532,6 +532,24 @@ const Admin = () => {
         </Dialog>
 
         {/* Delete User Dialog */}
+        <Dialog open={!!roleUser} onOpenChange={v => !v && setRoleUser(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>Alterar Perfil — {roleUser?.name}</DialogTitle></DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              {roleUser?.is_admin
+                ? 'Este usuário passará a ser Business: continua consultando todos os indicadores, mas perde o acesso à Administração.'
+                : 'Este usuário passará a ser Administrador: poderá gerenciar usuários, dados e a conexão com o ERP.'}
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRoleUser(null)}>Cancelar</Button>
+              <Button onClick={handleToggleRole} disabled={roleSaving}>
+                {roleSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <UserCog className="h-4 w-4 mr-1" />}
+                {roleUser?.is_admin ? 'Tornar Business' : 'Tornar Administrador'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={!!deleteUser} onOpenChange={v => !v && setDeleteUser(null)}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader><DialogTitle>Excluir Usuário</DialogTitle></DialogHeader>
