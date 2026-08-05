@@ -201,6 +201,12 @@ Deno.serve(async (req) => {
     const pergunta = String(body?.pergunta ?? '').trim()
     if (previa) {
       if (!pergunta) return json({ error: 'Escreva uma pergunta para testar.' }, 400)
+      const { data: perfil } = await admin
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', user.id)
+        .maybeSingle()
+      if (!perfil?.is_admin) return json({ error: 'Somente administradores podem testar agentes.' }, 403)
       const cfgPrev = montarConfig(body?.agente ?? {}, body?.skills ?? [])
       const r = await conversar(admin, apiKey, cfgPrev, [{ role: 'user', content: pergunta }])
       return json(r)
