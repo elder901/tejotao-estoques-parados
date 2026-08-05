@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { loadRuptura, type RupturaItem } from '@/lib/erpRuptura';
+import { loadRuptura, loadTotaisAtivos, type RupturaItem, type RupturaTotal } from '@/lib/erpRuptura';
 import { getLastSync, type ErpSyncInfo } from '@/lib/erpData';
 import { formatCurrency, formatNumber } from '@/lib/csvParser';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertTriangle, ArrowLeft, CalendarDays, Loader2, PackageX, Search, TrendingDown } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CalendarDays, Loader2, PackageX, Percent, Search, TrendingDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Ruptura = () => {
@@ -18,6 +18,8 @@ const Ruptura = () => {
   const [fornecedor, setFornecedor] = useState('all');
   const [busca, setBusca] = useState('');
   const [somenteComVenda, setSomenteComVenda] = useState(true);
+  const [modoEstoque, setModoEstoque] = useState<'zerados' | 'zerados_negativos'>('zerados');
+  const [totais, setTotais] = useState<RupturaTotal[]>([]);
   const [sync, setSync] = useState<ErpSyncInfo | null>(null);
 
   useEffect(() => {
@@ -26,6 +28,7 @@ const Ruptura = () => {
       .catch((e) => setErro(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
     getLastSync().then((s) => s && setSync(s)).catch(() => {});
+    loadTotaisAtivos().then(setTotais).catch(() => {});
   }, []);
 
   const unidades = useMemo(() => [...new Set(items.map((i) => i.codUnidade))].sort(), [items]);
@@ -41,7 +44,9 @@ const Ruptura = () => {
   }, [items, unidade, departamento]);
 
   const filtrados = useMemo(() => {
-    let r = items;
+    let r = modoEstoque === 'zerados'
+      ? items.filter((i) => i.quantidadeEstoque === 0)
+      : items.filter((i) => i.quantidadeEstoque <= 0);
     if (unidade !== 'all') r = r.filter((i) => i.codUnidade === unidade);
     if (departamento !== 'all') r = r.filter((i) => i.departamento === departamento);
     if (fornecedor !== 'all') r = r.filter((i) => i.fornecedor === fornecedor);
@@ -51,10 +56,26 @@ const Ruptura = () => {
       r = r.filter((i) => i.descricao.toLowerCase().includes(t) || i.codItem.toLowerCase().includes(t));
     }
     return [...r].sort((a, b) => b.perdaDia - a.perdaDia);
-  }, [items, unidade, departamento, fornecedor, busca, somenteComVenda]);
+  }, [items, unidade, departamento, fornecedor, busca, somenteComVenda, modoEstoque]);
 
   const perdaTotalDia = filtrados.reduce((s, i) => s + i.perdaDia, 0);
   const comVenda = filtrados.filter((i) => i.vendasPeriodo > 0).length;
+
+  // % de ruptura = itens em ruptura ÷ itens ativos (não bloqueados) da(s) loja(s) selecionada(s)
+  const itensAtivos = useMemo(() => {
+    const base = unidade === 'all' ? totais : totais.filter((t) => t.codUnidade === unidade);
+    return base.reduce((s, t) => s + t.itensAtivos, 0);
+  }, [totais, unidade]);
+
+  const rupturaBase = useMemo(() => {
+    let r = modoEstoque === 'zerados'
+      ? items.filter((i) => i.quantidadeEstoque === 0)
+      : items.filter((i) => i.quantidadeEstoque <= 0);
+    if (unidade !== 'all') r = r.filter((i) => i.codUnidade === unidade);
+    return r.length;
+  }, [items, unidade, modoEstoque]);
+
+  const percentualRuptura = itensAtivos > 0 ? (rupturaBase / itensAtivos) * 100 : null;
 
   if (loading) {
     return (
@@ -94,7 +115,13 @@ const Ruptura = () => {
           <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{erro}</div>
         )}
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          <Kpi
+            icon={<Percent className="h-5 w-5" />}
+            label={`% de ruptura (${modoEstoque === 'zerados' ? 'zerados' : 'zerados + negativos'})`}
+            value={percentualRuptura === null ? '—' : `${formatNumber(percentualRuptura, 2)}%`}
+            danger
+          />
           <Kpi icon={<PackageX className="h-5 w-5" />} label="Itens em ruptura" value={String(filtrados.length)} danger />
           <Kpi icon={<AlertTriangle className="h-5 w-5" />} label="Com venda nos últimos 90d" value={String(comVenda)} />
           <Kpi icon={<TrendingDown className="h-5 w-5" />} label="Venda perdida estimada / dia" value={formatCurrency(perdaTotalDia)} danger />
@@ -127,13 +154,36 @@ const Ruptura = () => {
               {fornecedores.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
             </SelectContent>
           </Select>
+          <div className="flex items-center gap-1 rounded-md border p-0.5">
+            <Button
+              variant={modoEstoque === 'zerados' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setModoEstoque('zerados')}
+            >
+              Só zerados
+            </Button>
+            <Button
+              variant={modoEstoque === 'zerados_negativos' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setModoEstoque('zerados_negativos')}
+            >
+              Zerados + negativos
+            </Button>
+          </div>
           <Button variant={somenteComVenda ? 'default' : 'outline'} size="sm" onClick={() => setSomenteComVenda((v) => !v)}>
             Só itens com venda
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => { setUnidade('all'); setDepartamento('all'); setFornecedor('all'); setBusca(''); setSomenteComVenda(true); }}>
+          <Button variant="ghost" size="sm" onClick={() => { setUnidade('all'); setDepartamento('all'); setFornecedor('all'); setBusca(''); setSomenteComVenda(true); setModoEstoque('zerados'); }}>
             Limpar
           </Button>
         </div>
+
+        {itensAtivos > 0 && (
+          <p className="text-xs text-muted-foreground">
+            Base do cálculo: {formatNumber(rupturaBase, 0)} itens em ruptura de {formatNumber(itensAtivos, 0)} itens ativos (não bloqueados)
+            {unidade !== 'all' ? ` na loja ${unidade}` : ' na rede'}.
+          </p>
+        )}
 
         <div className="bg-card rounded-lg border overflow-hidden">
           <div className="overflow-x-auto">
