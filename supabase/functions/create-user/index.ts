@@ -44,9 +44,14 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { email, password, name } = await req.json()
+    const { email, password, name, is_admin } = await req.json()
     if (!email || !password || !name) {
       return new Response(JSON.stringify({ error: 'Email, senha e nome são obrigatórios' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+    if (typeof password !== 'string' || password.length < 6) {
+      return new Response(JSON.stringify({ error: 'Senha deve ter no mínimo 6 caracteres' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
@@ -62,6 +67,19 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: error.message }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
+    }
+
+    // O trigger cria o perfil como business (is_admin = false). Promove se pedido.
+    if (is_admin === true && data.user) {
+      const { error: roleError } = await supabaseAdmin
+        .from('profiles')
+        .update({ is_admin: true })
+        .eq('id', data.user.id)
+      if (roleError) {
+        return new Response(JSON.stringify({ error: 'Usuário criado, mas falhou ao definir perfil de administrador' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
     }
 
     return new Response(JSON.stringify({ user: data.user }), {
