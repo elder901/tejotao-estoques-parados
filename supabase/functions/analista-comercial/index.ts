@@ -98,17 +98,30 @@ async function carregarConfig(admin: any): Promise<Config> {
       .eq('agente_id', agente.id)
       .eq('ativa', true)
       .order('ordem', { ascending: true })
-    return montarConfig(agente, skills ?? [])
+    const { data: vinculos } = await admin
+      .from('ai_agente_metricas')
+      .select('ordem, ai_metricas ( nome, definicao, regra_tecnica, ativa )')
+      .eq('agente_id', agente.id)
+      .order('ordem', { ascending: true })
+    const metricas = (vinculos ?? [])
+      .map((v: any) => v.ai_metricas)
+      .filter((m: any) => m && m.ativa !== false)
+      .map((m: any) => `${m.nome}: ${String(m.definicao ?? '').trim()}\n${String(m.regra_tecnica ?? '').trim()}`.trim())
+    return montarConfig(agente, skills ?? [], metricas)
   } catch (_e) {
     return { instrucoes: SYSTEM, modelo: MODELO_PADRAO, temperatura: 0.2, permite_erp: true }
   }
 }
 
-function montarConfig(agente: any, skills: any[]): Config {
+function montarConfig(agente: any, skills: any[], metricas: string[] = []): Config {
   const blocos = (skills ?? []).map((s: any) => String(s.conteudo ?? '').trim()).filter(Boolean)
+  const defs = (metricas ?? []).map((m) => String(m ?? '').trim()).filter(Boolean)
   const base = String(agente?.instrucoes ?? '').trim() || SYSTEM
+  const biblioteca = defs.length
+    ? ['DEFINIÇÕES OFICIAIS DE MÉTRICAS (verdade única da empresa, siga exatamente):', ...defs].join('\n\n')
+    : ''
   return {
-    instrucoes: [base, ...blocos].join('\n\n'),
+    instrucoes: [base, biblioteca, ...blocos].filter(Boolean).join('\n\n'),
     modelo: String(agente?.modelo ?? '').trim() || MODELO_PADRAO,
     temperatura: Number.isFinite(Number(agente?.temperatura)) ? Number(agente.temperatura) : 0.2,
     permite_erp: agente?.permite_erp !== false,
@@ -207,7 +220,7 @@ Deno.serve(async (req) => {
         .eq('id', user.id)
         .maybeSingle()
       if (!perfil?.is_admin) return json({ error: 'Somente administradores podem testar agentes.' }, 403)
-      const cfgPrev = montarConfig(body?.agente ?? {}, body?.skills ?? [])
+      const cfgPrev = montarConfig(body?.agente ?? {}, body?.skills ?? [], body?.metricas ?? [])
       const r = await conversar(admin, apiKey, cfgPrev, [{ role: 'user', content: pergunta }])
       return json(r)
     }

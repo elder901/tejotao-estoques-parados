@@ -10,8 +10,10 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, History, Loader2, Play, Plus, Save, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowLeft, BookOpen, History, Loader2, Play, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 
 interface Agente {
   id: string;
@@ -42,6 +44,17 @@ interface Versao {
   snapshot: any;
 }
 
+interface Metrica {
+  id: string;
+  chave: string;
+  nome: string;
+  area: string;
+  definicao: string;
+  regra_tecnica: string;
+  ativa: boolean;
+  ordem: number;
+}
+
 const MODELOS = [
   { id: "deepseek/deepseek-chat", nome: "DeepSeek Chat (barato, recomendado)" },
   { id: "deepseek/deepseek-reasoner", nome: "DeepSeek Reasoner (raciocínio)" },
@@ -61,6 +74,8 @@ const AdminAgenteEditar = () => {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [removidas, setRemovidas] = useState<string[]>([]);
   const [versoes, setVersoes] = useState<Versao[]>([]);
+  const [metricas, setMetricas] = useState<Metrica[]>([]);
+  const [selecionadas, setSelecionadas] = useState<string[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [motivo, setMotivo] = useState("");
@@ -74,7 +89,7 @@ const AdminAgenteEditar = () => {
     let ativo = true;
     (async () => {
       setCarregando(true);
-      const [{ data: a }, { data: s }, { data: v }] = await Promise.all([
+      const [{ data: a }, { data: s }, { data: v }, { data: m }, { data: vin }] = await Promise.all([
         supabase.from("ai_agentes").select("*").eq("id", agenteId).maybeSingle(),
         supabase
           .from("ai_agente_skills")
@@ -87,6 +102,8 @@ const AdminAgenteEditar = () => {
           .eq("agente_id", agenteId)
           .order("created_at", { ascending: false })
           .limit(20),
+        supabase.from("ai_metricas").select("*").order("area").order("ordem"),
+        supabase.from("ai_agente_metricas").select("metrica_id, ordem").eq("agente_id", agenteId).order("ordem"),
       ]);
       if (!ativo) return;
       if (!a) {
@@ -97,6 +114,8 @@ const AdminAgenteEditar = () => {
       setAgente(a as Agente);
       setSkills((s ?? []) as Skill[]);
       setVersoes((v ?? []) as Versao[]);
+      setMetricas((m ?? []) as Metrica[]);
+      setSelecionadas(((vin ?? []) as any[]).map((x) => x.metrica_id));
       setCarregando(false);
     })();
     return () => {
@@ -104,7 +123,7 @@ const AdminAgenteEditar = () => {
     };
   }, [agenteId, navigate]);
 
-  if (loading) return null;
+  if (loading || !profile) return null;
   if (!profile?.is_admin) return <Navigate to="/" replace />;
 
   const atualizar = (campo: keyof Agente, valor: unknown) =>
@@ -123,6 +142,14 @@ const AdminAgenteEditar = () => {
     setSkills((lista) => lista.filter((s) => s.id !== id));
     if (!id.startsWith("novo-")) setRemovidas((r) => [...r, id]);
   };
+
+  const alternarMetrica = (id: string) =>
+    setSelecionadas((lista) => (lista.includes(id) ? lista.filter((x) => x !== id) : [...lista, id]));
+
+  const textoMetricas = () =>
+    metricas
+      .filter((m) => m.ativa && selecionadas.includes(m.id))
+      .map((m) => `${m.nome}: ${m.definicao}\n${m.regra_tecnica}`.trim());
 
   const salvar = async () => {
     if (!agente) return;
@@ -196,6 +223,15 @@ const AdminAgenteEditar = () => {
         .single();
       if (erroVersao) throw erroVersao;
 
+      const { error: erroDel } = await supabase.from("ai_agente_metricas").delete().eq("agente_id", agente.id);
+      if (erroDel) throw erroDel;
+      if (selecionadas.length) {
+        const { error: erroVinc } = await supabase.from("ai_agente_metricas").insert(
+          selecionadas.map((metrica_id, i) => ({ agente_id: agente.id, metrica_id, ordem: i + 1 })),
+        );
+        if (erroVinc) throw erroVinc;
+      }
+
       setVersoes((v) => [versao as Versao, ...v]);
       setRemovidas([]);
       setMotivo("");
@@ -240,6 +276,7 @@ const AdminAgenteEditar = () => {
             permite_erp: agente.permite_erp,
           },
           skills: skills.filter((s) => s.ativa).map((s) => ({ conteudo: s.conteudo })),
+          metricas: textoMetricas(),
         },
       });
       if (error) throw error;
@@ -358,6 +395,47 @@ const AdminAgenteEditar = () => {
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="mt-4 space-y-4 rounded-lg border bg-card p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold">Métricas que este agente usa</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Definições oficiais compartilhadas por todos os agentes. Para mudar o conteúdo, use a{" "}
+              <Link to="/admin/metricas" className="underline">Biblioteca de Métricas</Link>.
+            </p>
+          </div>
+          <BookOpen className="h-4 w-4 text-muted-foreground" />
+        </div>
+        {metricas.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nenhuma métrica cadastrada na biblioteca ainda.</p>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {metricas.map((m) => (
+              <label
+                key={m.id}
+                className="flex cursor-pointer items-start gap-2 rounded-md border p-3 text-sm hover:bg-accent/30"
+              >
+                <Checkbox
+                  checked={selecionadas.includes(m.id)}
+                  onCheckedChange={() => alternarMetrica(m.id)}
+                  className="mt-0.5"
+                />
+                <span className="min-w-0">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{m.nome}</span>
+                    <Badge variant="outline" className="text-[10px]">{m.area}</Badge>
+                    {!m.ativa && <Badge variant="secondary" className="text-[10px]">Desligada</Badge>}
+                  </span>
+                  <span className="mt-1 block line-clamp-2 text-xs text-muted-foreground">
+                    {m.definicao || "Sem descrição."}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="mt-4 space-y-4 rounded-lg border bg-card p-4">

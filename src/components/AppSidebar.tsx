@@ -12,6 +12,7 @@ import {
   ShieldAlert,
   Gauge,
   Bot,
+  BookOpen,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -51,6 +52,7 @@ const analistas: Item[] = [
 const admin: Item[] = [
   { title: "Usuários", url: "/admin", icon: Users },
   { title: "Agentes de IA", url: "/admin/agentes", icon: Bot },
+  { title: "Biblioteca de Métricas", url: "/admin/metricas", icon: BookOpen },
   { title: "Conexão ERP", url: "/erp", icon: PlugZap },
   { title: "Dados e Regras", url: "/erp-dados", icon: RefreshCw },
 ];
