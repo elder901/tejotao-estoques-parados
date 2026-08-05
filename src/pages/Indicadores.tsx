@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, FileDown, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatCurrency, formatNumber } from '@/lib/csvParser';
@@ -8,6 +8,7 @@ import {
   agregar, loadIndicadores, mesAnterior, mesmoMesAnoAnterior, rotuloMes,
   UNIT_NAMES, type Bloco, type IndicadorMes,
 } from '@/lib/erpIndicadores';
+import { exportarExcel, exportarPdf, type VisaoExport } from '@/lib/exportIndicadores';
 
 type Formato = 'moeda' | 'numero' | 'perc' | 'decimal';
 
@@ -118,6 +119,24 @@ const Indicadores = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={!visoes.length}
+              onClick={() => exportarExcel(visoes as VisaoExport[], lojas, INDICADORES, rotuloMes(mes))}
+              className="text-primary-foreground hover:bg-primary-foreground/10"
+            >
+              <FileSpreadsheet className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Excel</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={!visoes.length}
+              onClick={() => exportarPdf(visoes as VisaoExport[], lojas, INDICADORES, rotuloMes(mes), fmt)}
+              className="text-primary-foreground hover:bg-primary-foreground/10"
+            >
+              <FileDown className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">PDF</span>
+            </Button>
             <Select value={mes} onValueChange={setMes}>
               <SelectTrigger className="w-[130px] bg-primary-foreground/10 border-primary-foreground/20 text-primary-foreground">
                 <SelectValue placeholder="Mês" />
