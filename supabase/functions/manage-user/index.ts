@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { action, user_id, name, password } = await req.json()
+    const { action, user_id, name, password, is_admin } = await req.json()
 
     if (!user_id || !action) {
       return new Response(JSON.stringify({ error: 'action e user_id são obrigatórios' }), {
@@ -56,6 +56,28 @@ Deno.serve(async (req) => {
     if (action === 'delete' && user_id === caller.id) {
       return new Response(JSON.stringify({ error: 'Você não pode excluir sua própria conta' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    if (action === 'update_role') {
+      if (typeof is_admin !== 'boolean') {
+        return new Response(JSON.stringify({ error: 'Perfil inválido' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+      if (user_id === caller.id && is_admin === false) {
+        return new Response(JSON.stringify({ error: 'Você não pode remover seu próprio acesso de administrador' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+      const { error } = await supabaseAdmin
+        .from('profiles')
+        .update({ is_admin })
+        .eq('id', user_id)
+      if (error) throw error
+
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
