@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import Index from "./pages/Index";
+import Home from "./pages/Home";
+import AppLayout from "./layouts/AppLayout";
 import ActionPlans from "./pages/ActionPlans";
 import Login from "./pages/Login";
 import Admin from "./pages/Admin";
@@ -33,13 +35,17 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-            <Route path="/planos" element={<ProtectedRoute><ActionPlans /></ProtectedRoute>} />
-            <Route path="/ruptura" element={<ProtectedRoute><Ruptura /></ProtectedRoute>} />
-            <Route path="/indicadores" element={<ProtectedRoute><Indicadores /></ProtectedRoute>} />
-            <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-            <Route path="/erp" element={<ProtectedRoute><ErpConnect /></ProtectedRoute>} />
-            <Route path="/erp-dados" element={<ProtectedRoute><ErpSync /></ProtectedRoute>} />
+            <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+              <Route path="/" element={<Home />} />
+              <Route path="/estoques-parados" element={<Index />} />
+              <Route path="/estoque" element={<Navigate to="/estoques-parados" replace />} />
+              <Route path="/planos" element={<ActionPlans />} />
+              <Route path="/ruptura" element={<Ruptura />} />
+              <Route path="/indicadores" element={<Indicadores />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/erp" element={<ErpConnect />} />
+              <Route path="/erp-dados" element={<ErpSync />} />
+            </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

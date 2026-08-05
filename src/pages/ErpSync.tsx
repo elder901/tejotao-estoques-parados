@@ -120,9 +120,6 @@ export default function ErpSync() {
     <div className="min-h-screen bg-background">
       <header className="bg-primary text-primary-foreground">
         <div className="max-w-[1000px] mx-auto px-4 py-4 flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/admin')} className="text-primary-foreground hover:bg-primary-foreground/10">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
           <div className="flex-1">
             <h1 className="text-xl font-bold flex items-center gap-2"><Shield className="h-5 w-5" /> Dados do ERP e Regras</h1>
             <p className="text-primary-foreground/70 text-xs mt-0.5">Sincronização automática e governança dos cálculos</p>
