@@ -56,6 +56,45 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_agente_metricas: {
+        Row: {
+          agente_id: string
+          created_at: string
+          id: string
+          metrica_id: string
+          ordem: number
+        }
+        Insert: {
+          agente_id: string
+          created_at?: string
+          id?: string
+          metrica_id: string
+          ordem?: number
+        }
+        Update: {
+          agente_id?: string
+          created_at?: string
+          id?: string
+          metrica_id?: string
+          ordem?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agente_metricas_agente_id_fkey"
+            columns: ["agente_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_agente_metricas_metrica_id_fkey"
+            columns: ["metrica_id"]
+            isOneToOne: false
+            referencedRelation: "ai_metricas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_agente_skills: {
         Row: {
           agente_id: string
@@ -217,6 +256,80 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_metrica_versoes: {
+        Row: {
+          created_at: string
+          criado_por: string | null
+          id: string
+          metrica_id: string
+          motivo: string
+          snapshot: Json
+        }
+        Insert: {
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          metrica_id: string
+          motivo?: string
+          snapshot: Json
+        }
+        Update: {
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          metrica_id?: string
+          motivo?: string
+          snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_metrica_versoes_metrica_id_fkey"
+            columns: ["metrica_id"]
+            isOneToOne: false
+            referencedRelation: "ai_metricas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_metricas: {
+        Row: {
+          area: string
+          ativa: boolean
+          chave: string
+          created_at: string
+          definicao: string
+          id: string
+          nome: string
+          ordem: number
+          regra_tecnica: string
+          updated_at: string
+        }
+        Insert: {
+          area?: string
+          ativa?: boolean
+          chave: string
+          created_at?: string
+          definicao?: string
+          id?: string
+          nome: string
+          ordem?: number
+          regra_tecnica?: string
+          updated_at?: string
+        }
+        Update: {
+          area?: string
+          ativa?: boolean
+          chave?: string
+          created_at?: string
+          definicao?: string
+          id?: string
+          nome?: string
+          ordem?: number
+          regra_tecnica?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       ai_threads: {
         Row: {

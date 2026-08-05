@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import Admin from "./pages/Admin";
 import AdminAgentes from "./pages/AdminAgentes";
 import AdminAgenteEditar from "./pages/AdminAgenteEditar";
+import AdminMetricas from "./pages/AdminMetricas";
 import ErpSync from "./pages/ErpSync";
 import ErpConnect from "./pages/ErpConnect";
 import Ruptura from "./pages/Ruptura";
@@ -52,6 +53,7 @@ const App = () => (
               <Route path="/admin" element={<Admin />} />
               <Route path="/admin/agentes" element={<AdminAgentes />} />
               <Route path="/admin/agentes/:agenteId" element={<AdminAgenteEditar />} />
+              <Route path="/admin/metricas" element={<AdminMetricas />} />
               <Route path="/erp" element={<ErpConnect />} />
               <Route path="/erp-dados" element={<ErpSync />} />
             </Route>

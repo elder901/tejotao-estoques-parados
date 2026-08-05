@@ -37,7 +37,7 @@ const AdminAgentes = () => {
     })();
   }, []);
 
-  if (loading) return null;
+  if (loading || !profile) return null;
   if (!profile?.is_admin) return <Navigate to="/" replace />;
 
   const criar = async () => {
