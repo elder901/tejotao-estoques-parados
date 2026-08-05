@@ -25,9 +25,12 @@ Deno.serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '')
-    const { data: { user: caller } } = await supabaseAdmin.auth.getUser(token)
+    const { data: { user: caller }, error: callerError } = await supabaseAdmin.auth.getUser(token)
     if (!caller) {
-      return new Response(JSON.stringify({ error: 'Não autorizado' }), {
+      return new Response(JSON.stringify({
+        error: 'Sessão expirada. Saia e entre novamente para continuar.',
+        detail: callerError?.message ?? 'token inválido'
+      }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
