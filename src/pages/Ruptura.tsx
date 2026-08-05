@@ -8,6 +8,7 @@ import {
   type RupturaTotalDepto,
 } from '@/lib/erpRuptura';
 import { CURVAS, loadCurvaPorItem, loadResumoCurva, type ResumoCurva } from '@/lib/erpCurva';
+import PainelResumo from '@/components/PainelResumo';
 import { getLastSync, type ErpSyncInfo } from '@/lib/erpData';
 import { formatCurrency, formatNumber } from '@/lib/csvParser';
 import { Button } from '@/components/ui/button';
