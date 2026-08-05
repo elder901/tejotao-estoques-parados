@@ -247,7 +247,7 @@ export default function AnalistaComercial() {
 
             {messages.map((m) => (
               <Message key={m.id} from={m.role === "user" ? "user" : "assistant"}>
-                <MessageContent variant={m.role === "user" ? "contained" : "flat"}>
+                <MessageContent>
                   {m.parts?.length > 0 && (
                     <details className="mb-2 rounded-md border bg-muted/40 px-2 py-1.5 text-xs">
                       <summary className="flex cursor-pointer items-center gap-1.5 text-muted-foreground">
@@ -274,7 +274,7 @@ export default function AnalistaComercial() {
 
             {enviando && (
               <Message from="assistant">
-                <MessageContent variant="flat">
+                <MessageContent>
                   <Shimmer>Consultando o ERP...</Shimmer>
                 </MessageContent>
               </Message>
