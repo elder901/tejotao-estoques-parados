@@ -13,7 +13,7 @@ function json(body: unknown, status = 200) {
   })
 }
 
-const MODELO = 'deepseek/deepseek-chat'
+const MODELO_PADRAO = 'deepseek/deepseek-chat'
 const MAX_LINHAS = 200
 const MAX_PASSOS = 6
 
@@ -82,7 +82,40 @@ async function executarConsulta(admin: any, sql: string, motivo: string) {
   return { sql: limpo, linhas: dados.length, dados }
 }
 
-async function chamarModelo(apiKey: string, messages: any[]) {
+type Config = { instrucoes: string; modelo: string; temperatura: number; permite_erp: boolean }
+
+async function carregarConfig(admin: any): Promise<Config> {
+  try {
+    const { data: agente } = await admin
+      .from('ai_agentes')
+      .select('id, instrucoes, modelo, temperatura, permite_erp, ativo')
+      .eq('slug', 'comercial')
+      .maybeSingle()
+    if (!agente) return { instrucoes: SYSTEM, modelo: MODELO_PADRAO, temperatura: 0.2, permite_erp: true }
+    const { data: skills } = await admin
+      .from('ai_agente_skills')
+      .select('titulo, conteudo, ordem')
+      .eq('agente_id', agente.id)
+      .eq('ativa', true)
+      .order('ordem', { ascending: true })
+    return montarConfig(agente, skills ?? [])
+  } catch (_e) {
+    return { instrucoes: SYSTEM, modelo: MODELO_PADRAO, temperatura: 0.2, permite_erp: true }
+  }
+}
+
+function montarConfig(agente: any, skills: any[]): Config {
+  const blocos = (skills ?? []).map((s: any) => String(s.conteudo ?? '').trim()).filter(Boolean)
+  const base = String(agente?.instrucoes ?? '').trim() || SYSTEM
+  return {
+    instrucoes: [base, ...blocos].join('\n\n'),
+    modelo: String(agente?.modelo ?? '').trim() || MODELO_PADRAO,
+    temperatura: Number.isFinite(Number(agente?.temperatura)) ? Number(agente.temperatura) : 0.2,
+    permite_erp: agente?.permite_erp !== false,
+  }
+}
+
+async function chamarModelo(apiKey: string, messages: any[], cfg: Config) {
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -91,7 +124,12 @@ async function chamarModelo(apiKey: string, messages: any[]) {
       'HTTP-Referer': 'https://eficienciaoperacional.supertejotao.com.br',
       'X-Title': 'Tejotao Analistas de IA',
     },
-    body: JSON.stringify({ model: MODELO, messages, tools: TOOLS, temperature: 0.2 }),
+    body: JSON.stringify({
+      model: cfg.modelo,
+      messages,
+      ...(cfg.permite_erp ? { tools: TOOLS } : {}),
+      temperature: cfg.temperatura,
+    }),
   })
   const texto = await res.text()
   if (!res.ok) {
@@ -101,6 +139,46 @@ async function chamarModelo(apiKey: string, messages: any[]) {
     throw new Error(`Erro da OpenRouter [${res.status}]: ${texto.slice(0, 300)}`)
   }
   return JSON.parse(texto)
+}
+
+async function conversar(admin: any, apiKey: string, cfg: Config, turnos: any[]) {
+  const messages: any[] = [{ role: 'system', content: cfg.instrucoes }, ...turnos]
+  const consultas: { sql: string; motivo: string; linhas: number; erro?: string }[] = []
+  let resposta = ''
+
+  for (let passo = 0; passo < MAX_PASSOS; passo++) {
+    const data = await chamarModelo(apiKey, messages, cfg)
+    const msg = data?.choices?.[0]?.message
+    if (!msg) throw new Error('O modelo não devolveu resposta.')
+    messages.push(msg)
+
+    const calls = msg.tool_calls ?? []
+    if (!calls.length) {
+      resposta = String(msg.content ?? '').trim()
+      break
+    }
+
+    for (const call of calls) {
+      let args: any = {}
+      try { args = JSON.parse(call.function?.arguments ?? '{}') } catch { /* ignora */ }
+      try {
+        const r = await executarConsulta(admin, String(args.sql ?? ''), String(args.motivo ?? ''))
+        consultas.push({ sql: r.sql, motivo: String(args.motivo ?? ''), linhas: r.linhas })
+        messages.push({
+          role: 'tool',
+          tool_call_id: call.id,
+          content: JSON.stringify({ linhas: r.linhas, dados: r.dados }).slice(0, 60000),
+        })
+      } catch (e) {
+        const erro = e instanceof Error ? e.message : String(e)
+        consultas.push({ sql: String(args.sql ?? ''), motivo: String(args.motivo ?? ''), linhas: 0, erro })
+        messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ erro }) })
+      }
+    }
+  }
+
+  if (!resposta) resposta = 'Não consegui concluir a análise. Tente reformular a pergunta ou reduzir o período.'
+  return { resposta, consultas }
 }
 
 Deno.serve(async (req) => {
@@ -118,8 +196,16 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: 'Não autorizado' }, 401)
 
     const body = await req.json()
+    const previa = body?.previa === true
     const threadId = String(body?.threadId ?? '')
     const pergunta = String(body?.pergunta ?? '').trim()
+    if (previa) {
+      if (!pergunta) return json({ error: 'Escreva uma pergunta para testar.' }, 400)
+      const cfgPrev = montarConfig(body?.agente ?? {}, body?.skills ?? [])
+      const r = await conversar(admin, apiKey, cfgPrev, [{ role: 'user', content: pergunta }])
+      return json(r)
+    }
+
     if (!threadId || !pergunta) return json({ error: 'Pergunta ou conversa inválida.' }, 400)
 
     const { data: thread } = await admin
@@ -145,47 +231,11 @@ Deno.serve(async (req) => {
       await admin.from('ai_threads').update({ updated_at: new Date().toISOString() }).eq('id', threadId)
     }
 
-    const messages: any[] = [
-      { role: 'system', content: SYSTEM },
+    const cfg = await carregarConfig(admin)
+    const { resposta, consultas } = await conversar(admin, apiKey, cfg, [
       ...(historico ?? []).map((m: any) => ({ role: m.role, content: m.content })),
       { role: 'user', content: pergunta },
-    ]
-
-    const consultas: { sql: string; motivo: string; linhas: number; erro?: string }[] = []
-    let resposta = ''
-
-    for (let passo = 0; passo < MAX_PASSOS; passo++) {
-      const data = await chamarModelo(apiKey, messages)
-      const msg = data?.choices?.[0]?.message
-      if (!msg) throw new Error('O modelo não devolveu resposta.')
-      messages.push(msg)
-
-      const calls = msg.tool_calls ?? []
-      if (!calls.length) {
-        resposta = String(msg.content ?? '').trim()
-        break
-      }
-
-      for (const call of calls) {
-        let args: any = {}
-        try { args = JSON.parse(call.function?.arguments ?? '{}') } catch { /* ignora */ }
-        try {
-          const r = await executarConsulta(admin, String(args.sql ?? ''), String(args.motivo ?? ''))
-          consultas.push({ sql: r.sql, motivo: String(args.motivo ?? ''), linhas: r.linhas })
-          messages.push({
-            role: 'tool',
-            tool_call_id: call.id,
-            content: JSON.stringify({ linhas: r.linhas, dados: r.dados }).slice(0, 60000),
-          })
-        } catch (e) {
-          const erro = e instanceof Error ? e.message : String(e)
-          consultas.push({ sql: String(args.sql ?? ''), motivo: String(args.motivo ?? ''), linhas: 0, erro })
-          messages.push({ role: 'tool', tool_call_id: call.id, content: JSON.stringify({ erro }) })
-        }
-      }
-    }
-
-    if (!resposta) resposta = 'Não consegui concluir a análise. Tente reformular a pergunta ou reduzir o período.'
+    ])
 
     const { data: salva } = await admin
       .from('ai_messages')
