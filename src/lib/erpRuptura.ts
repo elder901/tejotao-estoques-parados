@@ -25,6 +25,27 @@ const UNIT_NAMES: Record<string, string> = {
 const PAGE = 1000;
 const MAX_ITENS = 8000;
 
+export interface RupturaTotal {
+  codUnidade: string;
+  itensAtivos: number;
+  itensZerados: number;
+  itensNegativos: number;
+}
+
+/** Total de itens ativos (não bloqueados) por loja — base do % de ruptura. */
+export async function loadTotaisAtivos(): Promise<RupturaTotal[]> {
+  const { data, error } = await supabase
+    .from('erp_ruptura_totais')
+    .select('cod_unidade, itens_ativos, itens_zerados, itens_negativos');
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    codUnidade: r.cod_unidade,
+    itensAtivos: Number(r.itens_ativos) || 0,
+    itensZerados: Number(r.itens_zerados) || 0,
+    itensNegativos: Number(r.itens_negativos) || 0,
+  }));
+}
+
 /** Itens em ruptura: estoque zerado e produto NÃO bloqueado (ou seja, vendemos). */
 export async function loadRuptura(): Promise<RupturaItem[]> {
   const paginas = Array.from({ length: MAX_ITENS / PAGE }, (_, page) =>
