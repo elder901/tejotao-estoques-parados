@@ -69,7 +69,7 @@ export function AppSidebar() {
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton
                 asChild
-                isActive={!item.soon && pathname === item.url}
+                isActive={!item.soon && (pathname === item.url || pathname.startsWith(`${item.url}/`))}
                 tooltip={item.title}
               >
                 {item.soon ? (
