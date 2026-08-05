@@ -79,6 +79,18 @@ function desempacotar(rows: any[]): any[][] {
 }
 
 /** SQL da ruptura: estoque zerado (ou negativo) e item NÃO bloqueado (= vendemos). */
+export function sqlTotaisAtivos() {
+  return (
+    'SELECT json_agg(json_build_array(x.unid, x.ativos, x.zerados, x.negativos))::text AS pacote FROM (' +
+    'SELECT pu.prun_unid_codigo AS unid, count(*) AS ativos, ' +
+    'count(*) FILTER (WHERE pu.prun_estoque1 = 0) AS zerados, ' +
+    'count(*) FILTER (WHERE pu.prun_estoque1 < 0) AS negativos ' +
+    'FROM produn pu ' +
+    'JOIN produtos pr ON pr.prod_codigo = pu.prun_prod_codigo ' +
+    "WHERE coalesce(pu.prun_bloqueado, 'N') = 'N' GROUP BY 1) x"
+  )
+}
+
 export function sqlRuptura(pagina: number, tamanho: number) {
   return (
     'SELECT json_agg(json_build_array(x.unid, x.cod, x.descricao, x.dpto, x.dpto_nome, x.fornecedor, x.est, x.ctm, x.prv))::text AS pacote FROM (' +
