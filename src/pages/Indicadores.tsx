@@ -145,9 +145,6 @@ const Indicadores = () => {
                 {meses.map((m) => <SelectItem key={m} value={m}>{rotuloMes(m)}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/')} className="text-primary-foreground hover:bg-primary-foreground/10">
-              <ArrowLeft className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Voltar</span>
-            </Button>
           </div>
         </div>
       </header>
