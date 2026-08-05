@@ -56,6 +56,127 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_agente_skills: {
+        Row: {
+          agente_id: string
+          ativa: boolean
+          conteudo: string
+          created_at: string
+          id: string
+          ordem: number
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          agente_id: string
+          ativa?: boolean
+          conteudo?: string
+          created_at?: string
+          id?: string
+          ordem?: number
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          agente_id?: string
+          ativa?: boolean
+          conteudo?: string
+          created_at?: string
+          id?: string
+          ordem?: number
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agente_skills_agente_id_fkey"
+            columns: ["agente_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agentes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_agente_versoes: {
+        Row: {
+          agente_id: string
+          created_at: string
+          criado_por: string | null
+          id: string
+          motivo: string
+          snapshot: Json
+        }
+        Insert: {
+          agente_id: string
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          motivo?: string
+          snapshot: Json
+        }
+        Update: {
+          agente_id?: string
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          motivo?: string
+          snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agente_versoes_agente_id_fkey"
+            columns: ["agente_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agentes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_agentes: {
+        Row: {
+          ativo: boolean
+          avatar: string
+          created_at: string
+          descricao: string
+          id: string
+          instrucoes: string
+          modelo: string
+          nome: string
+          permite_erp: boolean
+          slug: string
+          temperatura: number
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          avatar?: string
+          created_at?: string
+          descricao?: string
+          id?: string
+          instrucoes?: string
+          modelo?: string
+          nome: string
+          permite_erp?: boolean
+          slug: string
+          temperatura?: number
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          avatar?: string
+          created_at?: string
+          descricao?: string
+          id?: string
+          instrucoes?: string
+          modelo?: string
+          nome?: string
+          permite_erp?: boolean
+          slug?: string
+          temperatura?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_messages: {
         Row: {
           content: string
