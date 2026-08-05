@@ -117,26 +117,9 @@ const ActionPlans = () => {
     <div className="min-h-screen bg-background">
       <header className="bg-primary text-primary-foreground">
         <div className="max-w-[1400px] mx-auto px-4 py-4 sm:py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" onClick={() => navigate('/')} className="text-primary-foreground hover:bg-primary-foreground/10">
-                <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-              </Button>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Análise de Planos de Ação</h1>
-                <p className="text-primary-foreground/70 text-xs sm:text-sm mt-0.5">Acompanhamento e valores dos planos definidos</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 sm:gap-3">
-              {profile?.is_admin && (
-                <Button variant="ghost" size="sm" onClick={() => navigate('/admin')} className="text-primary-foreground hover:bg-primary-foreground/10 px-2 sm:px-3">
-                  <Shield className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Admin</span>
-                </Button>
-              )}
-              <Button variant="ghost" size="sm" onClick={async () => { await signOut(); navigate('/login'); }} className="text-primary-foreground hover:bg-primary-foreground/10 px-2 sm:px-3">
-                <LogOut className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Sair</span>
-              </Button>
-            </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Análise de Planos de Ação</h1>
+            <p className="text-primary-foreground/70 text-xs sm:text-sm mt-0.5">Acompanhamento e valores dos planos definidos</p>
           </div>
         </div>
       </header>
