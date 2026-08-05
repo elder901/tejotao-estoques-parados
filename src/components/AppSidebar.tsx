@@ -11,6 +11,7 @@ import {
   Users,
   ShieldAlert,
   Gauge,
+  Bot,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -41,6 +42,10 @@ const comercial: Item[] = [
 const kpis: Item[] = [
   { title: "Prevenção de Perdas", url: "/indicadores", icon: ShieldAlert, soon: true },
   { title: "Eficiência Operacional", url: "/indicadores", icon: Gauge, soon: true },
+];
+
+const analistas: Item[] = [
+  { title: "Analista Comercial", url: "/analistas/comercial", icon: Bot },
 ];
 
 const admin: Item[] = [
@@ -125,6 +130,7 @@ export function AppSidebar() {
 
         {renderGroup("Gestão de Estoque", estoque)}
         {renderGroup("Comercial", comercial)}
+        {renderGroup("Analistas de IA", analistas)}
         {renderGroup("KPIs", kpis)}
         {profile?.is_admin && renderGroup("Administração", admin)}
       </SidebarContent>
