@@ -35,9 +35,11 @@ const estoque: Item[] = [
   { title: "Planos de Ação", url: "/planos", icon: ClipboardList },
 ];
 
-const kpis: Item[] = [
+const comercial: Item[] = [
   { title: "Indicadores Gerais", url: "/indicadores", icon: BarChart3 },
-  { title: "Comercial", url: "/indicadores", icon: TrendingUp, soon: true },
+];
+
+const kpis: Item[] = [
   { title: "Prevenção de Perdas", url: "/indicadores", icon: ShieldAlert, soon: true },
   { title: "Eficiência Operacional", url: "/indicadores", icon: Gauge, soon: true },
 ];
@@ -123,6 +125,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {renderGroup("Gestão de Estoque", estoque)}
+        {renderGroup("Comercial", comercial)}
         {renderGroup("KPIs", kpis)}
         {profile?.is_admin && renderGroup("Administração", admin)}
       </SidebarContent>
