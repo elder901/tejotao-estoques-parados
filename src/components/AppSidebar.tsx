@@ -13,6 +13,7 @@ import {
   Gauge,
   Bot,
   BookOpen,
+  LineChart,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -37,6 +38,7 @@ const estoque: Item[] = [
 
 const comercial: Item[] = [
   { title: "Indicadores Gerais", url: "/indicadores", icon: BarChart3 },
+  { title: "Curva ABC", url: "/curva-abc", icon: LineChart },
   { title: "Ruptura", url: "/ruptura", icon: PackageX },
 ];
 
