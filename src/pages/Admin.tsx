@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { ArrowLeft, Loader2, UserPlus, Shield, Upload, FileSpreadsheet, CalendarDays, Pencil, KeyRound, Trash2, PlugZap, RefreshCw } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, Loader2, UserPlus, Shield, Upload, FileSpreadsheet, CalendarDays, Pencil, KeyRound, Trash2, PlugZap, RefreshCw, UserCog } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface UserProfile {
@@ -39,6 +40,7 @@ const Admin = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState<'business' | 'admin'>('business');
   const [creating, setCreating] = useState(false);
 
   // User management state
@@ -50,6 +52,8 @@ const Admin = () => {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [deleteUser, setDeleteUser] = useState<UserProfile | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [roleUser, setRoleUser] = useState<UserProfile | null>(null);
+  const [roleSaving, setRoleSaving] = useState(false);
 
   // CSV upload state
   const [periodoRef, setPeriodoRef] = useState('');
@@ -108,26 +112,51 @@ const Admin = () => {
       toast.error('Preencha todos os campos');
       return;
     }
+    if (password.length < 6) {
+      toast.error('A senha deve ter no mínimo 6 caracteres');
+      return;
+    }
     setCreating(true);
     try {
       const res = await supabase.functions.invoke('create-user', {
-        body: { email, password, name: name.trim() },
+        body: { email: email.trim(), password, name: name.trim(), is_admin: role === 'admin' },
       });
       if (res.error) {
         toast.error(res.error.message || 'Erro ao criar usuário');
       } else if (res.data?.error) {
         toast.error(res.data.error);
       } else {
-        toast.success(`Usuário ${name} criado com sucesso!`);
+        toast.success(`Usuário ${name} criado como ${role === 'admin' ? 'Administrador' : 'Business'}!`);
         setName('');
         setEmail('');
         setPassword('');
+        setRole('business');
         fetchUsers();
       }
     } catch (err: any) {
       toast.error(err.message || 'Erro ao criar usuário');
     }
     setCreating(false);
+  };
+
+  const handleToggleRole = async () => {
+    if (!roleUser) return;
+    setRoleSaving(true);
+    try {
+      const res = await supabase.functions.invoke('manage-user', {
+        body: { action: 'update_role', user_id: roleUser.id, is_admin: !roleUser.is_admin },
+      });
+      if (res.error || res.data?.error) {
+        toast.error(res.data?.error || res.error?.message || 'Erro ao alterar perfil');
+      } else {
+        toast.success(`${roleUser.name} agora é ${!roleUser.is_admin ? 'Administrador' : 'Business'}`);
+        setRoleUser(null);
+        fetchUsers();
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao alterar perfil');
+    }
+    setRoleSaving(false);
   };
 
   const handleUpdateName = async () => {
@@ -386,12 +415,12 @@ const Admin = () => {
         {/* Create User Form */}
         <div className="bg-card border rounded-lg p-5">
           <h2 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
-            <UserPlus className="h-4 w-4 text-accent" /> Criar Novo Comprador
+            <UserPlus className="h-4 w-4 text-accent" /> Criar Novo Usuário
           </h2>
-          <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+          <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-5 gap-3 items-end">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Nome *</label>
-              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Nome do comprador" className="h-9 text-sm" />
+              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Nome do usuário" className="h-9 text-sm" />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Email *</label>
@@ -401,11 +430,24 @@ const Admin = () => {
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Senha *</label>
               <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="h-9 text-sm" />
             </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Perfil *</label>
+              <Select value={role} onValueChange={v => setRole(v as 'business' | 'admin')}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="business">Business (consulta)</SelectItem>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Button type="submit" disabled={creating} className="h-9">
               {creating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <UserPlus className="h-4 w-4 mr-1" />}
               Criar
             </Button>
           </form>
+          <p className="text-xs text-muted-foreground mt-3">
+            Business acessa todos os indicadores e planos de ação, mas não vê a área de Administração.
+          </p>
         </div>
 
         {/* Users List */}
@@ -425,7 +467,7 @@ const Admin = () => {
               ) : users.map(u => (
                 <TableRow key={u.id}>
                   <TableCell className="text-sm font-medium">{u.name}</TableCell>
-                  <TableCell>{u.is_admin ? <Badge>Admin</Badge> : <Badge variant="secondary">Comprador</Badge>}</TableCell>
+                  <TableCell>{u.is_admin ? <Badge>Admin</Badge> : <Badge variant="secondary">Business</Badge>}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{new Date(u.created_at).toLocaleDateString('pt-BR')}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -435,6 +477,11 @@ const Admin = () => {
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="Alterar senha" onClick={() => { setPasswordUser(u); setNewPassword(''); }}>
                         <KeyRound className="h-3.5 w-3.5" />
                       </Button>
+                      {u.id !== user?.id && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Alterar perfil de acesso" onClick={() => setRoleUser(u)}>
+                          <UserCog className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                       {u.id !== user?.id && (
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Excluir" onClick={() => setDeleteUser(u)}>
                           <Trash2 className="h-3.5 w-3.5" />
@@ -485,6 +532,24 @@ const Admin = () => {
         </Dialog>
 
         {/* Delete User Dialog */}
+        <Dialog open={!!roleUser} onOpenChange={v => !v && setRoleUser(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader><DialogTitle>Alterar Perfil — {roleUser?.name}</DialogTitle></DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              {roleUser?.is_admin
+                ? 'Este usuário passará a ser Business: continua consultando todos os indicadores, mas perde o acesso à Administração.'
+                : 'Este usuário passará a ser Administrador: poderá gerenciar usuários, dados e a conexão com o ERP.'}
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRoleUser(null)}>Cancelar</Button>
+              <Button onClick={handleToggleRole} disabled={roleSaving}>
+                {roleSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <UserCog className="h-4 w-4 mr-1" />}
+                {roleUser?.is_admin ? 'Tornar Business' : 'Tornar Administrador'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={!!deleteUser} onOpenChange={v => !v && setDeleteUser(null)}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader><DialogTitle>Excluir Usuário</DialogTitle></DialogHeader>
