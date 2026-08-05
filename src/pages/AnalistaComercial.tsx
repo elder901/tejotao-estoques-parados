@@ -94,6 +94,19 @@ export default function AnalistaComercial() {
     let ativo = true;
     setCarregando(true);
     (async () => {
+      const { data: thread } = await supabase
+        .from("ai_threads")
+        .select("id")
+        .eq("id", threadId)
+        .maybeSingle();
+      if (!ativo) return;
+      if (!thread) {
+        // Conversa apagada ou de outro usuário: volta para a rota base.
+        setMessages([]);
+        setCarregando(false);
+        navigate("/analistas/comercial", { replace: true });
+        return;
+      }
       const { data } = await supabase
         .from("ai_messages")
         .select("id, role, content, parts")
@@ -114,7 +127,7 @@ export default function AnalistaComercial() {
     return () => {
       ativo = false;
     };
-  }, [threadId, focar]);
+  }, [threadId, focar, navigate]);
 
   async function enviar(texto: string) {
     const pergunta = texto.trim();
@@ -138,6 +151,11 @@ export default function AnalistaComercial() {
       ]);
       carregarThreads();
     } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setMessages((prev) => [
+        ...prev,
+        { id: `err-${Date.now()}`, role: "assistant", content: `Não consegui responder agora: ${msg}`, parts: [] },
+      ]);
       toast({
         title: "O analista não conseguiu responder",
         description: e instanceof Error ? e.message : String(e),
