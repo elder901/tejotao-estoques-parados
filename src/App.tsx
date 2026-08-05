@@ -10,6 +10,8 @@ import AppLayout from "./layouts/AppLayout";
 import ActionPlans from "./pages/ActionPlans";
 import Login from "./pages/Login";
 import Admin from "./pages/Admin";
+import AdminAgentes from "./pages/AdminAgentes";
+import AdminAgenteEditar from "./pages/AdminAgenteEditar";
 import ErpSync from "./pages/ErpSync";
 import ErpConnect from "./pages/ErpConnect";
 import Ruptura from "./pages/Ruptura";
@@ -48,6 +50,8 @@ const App = () => (
               <Route path="/analistas/comercial" element={<AnalistaComercial />} />
               <Route path="/analistas/comercial/:threadId" element={<AnalistaComercial />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/admin/agentes" element={<AdminAgentes />} />
+              <Route path="/admin/agentes/:agenteId" element={<AdminAgenteEditar />} />
               <Route path="/erp" element={<ErpConnect />} />
               <Route path="/erp-dados" element={<ErpSync />} />
             </Route>

@@ -50,6 +50,7 @@ const analistas: Item[] = [
 
 const admin: Item[] = [
   { title: "Usuários", url: "/admin", icon: Users },
+  { title: "Agentes de IA", url: "/admin/agentes", icon: Bot },
   { title: "Conexão ERP", url: "/erp", icon: PlugZap },
   { title: "Dados e Regras", url: "/erp-dados", icon: RefreshCw },
 ];
