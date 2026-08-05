@@ -9,7 +9,6 @@ import {
   PlugZap,
   RefreshCw,
   Users,
-  TrendingUp,
   ShieldAlert,
   Gauge,
 } from "lucide-react";
