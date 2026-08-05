@@ -17,6 +17,7 @@ import ErpSync from "./pages/ErpSync";
 import ErpConnect from "./pages/ErpConnect";
 import Ruptura from "./pages/Ruptura";
 import Indicadores from "./pages/Indicadores";
+import CurvaAbc from "./pages/CurvaAbc";
 import Analistas from "./pages/Analistas";
 import AnalistaComercial from "./pages/AnalistaComercial";
 import NotFound from "./pages/NotFound";
@@ -47,6 +48,7 @@ const App = () => (
               <Route path="/planos" element={<ActionPlans />} />
               <Route path="/ruptura" element={<Ruptura />} />
               <Route path="/indicadores" element={<Indicadores />} />
+              <Route path="/curva-abc" element={<CurvaAbc />} />
               <Route path="/analistas" element={<Analistas />} />
               <Route path="/analistas/comercial" element={<AnalistaComercial />} />
               <Route path="/analistas/comercial/:threadId" element={<AnalistaComercial />} />

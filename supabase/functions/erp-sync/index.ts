@@ -107,6 +107,21 @@ export function sqlRuptura(pagina: number, tamanho: number) {
   )
 }
 
+/** Totais de itens ativos por loja + departamento (denominador do % de ruptura). */
+export function sqlTotaisAtivosDepto() {
+  return (
+    'SELECT json_agg(json_build_array(x.unid, x.dpto, x.dpto_nome, x.ativos, x.zerados, x.negativos))::text AS pacote FROM (' +
+    'SELECT pu.prun_unid_codigo AS unid, pr.prod_dpto_codigo AS dpto, ' +
+    'max(d.dpto_descricao) AS dpto_nome, count(*) AS ativos, ' +
+    'count(*) FILTER (WHERE pu.prun_estoque1 = 0) AS zerados, ' +
+    'count(*) FILTER (WHERE pu.prun_estoque1 < 0) AS negativos ' +
+    'FROM produn pu ' +
+    'JOIN produtos pr ON pr.prod_codigo = pu.prun_prod_codigo ' +
+    'LEFT JOIN departamentos d ON d.dpto_codigo = pr.prod_dpto_codigo ' +
+    "WHERE coalesce(pu.prun_bloqueado, 'N') = 'N' GROUP BY 1,2) x"
+  )
+}
+
 /** Aplica a regra de giro sobre uma linha bruta do ERP. */
 export function calcularLinha(row: any, p: RegraParams, versao: number, syncId: string) {
   const janela = Math.max(1, Math.floor(Number(p.janela_dias) || 90))
@@ -303,6 +318,31 @@ Deno.serve(async (req) => {
         }
       } catch (e) {
         console.error('Totais de ruptura falharam:', e instanceof Error ? e.message : String(e))
+      }
+
+      // Totais por loja + departamento (denominador do % por estrutura mercadológica)
+      try {
+        const detalhe = desempacotar(await runErpSql(token, sqlTotaisAtivosDepto(), 'Totais de itens ativos por departamento'))
+          .map(([unid, dpto, dptoNome, ativos, zerados, negativos]) => ({
+            sync_id: syncId!,
+            cod_unidade: String(unid ?? '').trim(),
+            cod_departamento: String(dpto ?? '').trim(),
+            departamento: String(dptoNome ?? '').trim() || 'Sem departamento',
+            itens_ativos: Number(ativos) || 0,
+            itens_zerados: Number(zerados) || 0,
+            itens_negativos: Number(negativos) || 0,
+            data_referencia: new Date().toISOString().slice(0, 10),
+            updated_at: new Date().toISOString(),
+          }))
+          .filter((t) => t.cod_unidade)
+        if (detalhe.length) {
+          const { error } = await admin
+            .from('erp_ruptura_totais_detalhe')
+            .upsert(detalhe, { onConflict: 'cod_unidade,cod_departamento' })
+          if (error) console.error('Falha ao gravar totais por departamento:', error.message)
+        }
+      } catch (e) {
+        console.error('Totais por departamento falharam:', e instanceof Error ? e.message : String(e))
       }
     }
 

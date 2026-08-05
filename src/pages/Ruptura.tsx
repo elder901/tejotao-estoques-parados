@@ -1,25 +1,43 @@
 import { useEffect, useMemo, useState } from 'react';
-import { loadRuptura, loadTotaisAtivos, type RupturaItem, type RupturaTotal } from '@/lib/erpRuptura';
+import {
+  loadRuptura,
+  loadTotaisAtivos,
+  loadTotaisAtivosDepto,
+  type RupturaItem,
+  type RupturaTotal,
+  type RupturaTotalDepto,
+} from '@/lib/erpRuptura';
+import { CURVAS, loadCurvaPorItem, loadResumoCurva, type ResumoCurva } from '@/lib/erpCurva';
 import { getLastSync, type ErpSyncInfo } from '@/lib/erpData';
 import { formatCurrency, formatNumber } from '@/lib/csvParser';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertTriangle, ArrowLeft, CalendarDays, Loader2, PackageX, Percent, Search, TrendingDown } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { AlertTriangle, CalendarDays, Loader2, PackageX, Percent, Search, TrendingDown } from 'lucide-react';
+
+interface LinhaResumo {
+  chave: string;
+  rotulo: string;
+  ativos: number;
+  emRuptura: number;
+  perda: number;
+}
 
 const Ruptura = () => {
-  const navigate = useNavigate();
   const [items, setItems] = useState<RupturaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [unidade, setUnidade] = useState('all');
   const [departamento, setDepartamento] = useState('all');
+  const [curva, setCurva] = useState('all');
   const [fornecedor, setFornecedor] = useState('all');
   const [busca, setBusca] = useState('');
   const [somenteComVenda, setSomenteComVenda] = useState(true);
   const [modoEstoque, setModoEstoque] = useState<'zerados' | 'zerados_negativos'>('zerados');
   const [totais, setTotais] = useState<RupturaTotal[]>([]);
+  const [totaisDepto, setTotaisDepto] = useState<RupturaTotalDepto[]>([]);
+  const [curvaPorItem, setCurvaPorItem] = useState<Map<string, string>>(new Map());
+  const [resumoCurva, setResumoCurva] = useState<ResumoCurva[]>([]);
   const [sync, setSync] = useState<ErpSyncInfo | null>(null);
 
   useEffect(() => {
@@ -29,37 +47,115 @@ const Ruptura = () => {
       .finally(() => setLoading(false));
     getLastSync().then((s) => s && setSync(s)).catch(() => {});
     loadTotaisAtivos().then(setTotais).catch(() => {});
+    loadTotaisAtivosDepto().then(setTotaisDepto).catch(() => {});
+    loadCurvaPorItem('REDE').then(setCurvaPorItem).catch(() => {});
+    loadResumoCurva('REDE').then(setResumoCurva).catch(() => {});
   }, []);
 
-  const unidades = useMemo(() => [...new Set(items.map((i) => i.codUnidade))].sort(), [items]);
-  const departamentos = useMemo(() => {
-    const base = unidade === 'all' ? items : items.filter((i) => i.codUnidade === unidade);
-    return [...new Set(base.map((i) => i.departamento))].sort();
-  }, [items, unidade]);
+  /** Itens com a curva ABC anexada. */
+  const itensComCurva = useMemo(
+    () => items.map((i) => ({ ...i, curva: curvaPorItem.get(i.codItem) ?? 'Sem curva' })),
+    [items, curvaPorItem],
+  );
+
   const fornecedores = useMemo(() => {
-    let base = items;
+    let base = itensComCurva;
     if (unidade !== 'all') base = base.filter((i) => i.codUnidade === unidade);
     if (departamento !== 'all') base = base.filter((i) => i.departamento === departamento);
     return [...new Set(base.map((i) => i.fornecedor))].sort().slice(0, 400);
-  }, [items, unidade, departamento]);
+  }, [itensComCurva, unidade, departamento]);
 
-  const filtrados = useMemo(() => {
+  /** Base comum: modo de estoque, busca, fornecedor e "só com venda". */
+  const baseComum = useMemo(() => {
     let r = modoEstoque === 'zerados'
-      ? items.filter((i) => i.quantidadeEstoque === 0)
-      : items.filter((i) => i.quantidadeEstoque <= 0);
-    if (unidade !== 'all') r = r.filter((i) => i.codUnidade === unidade);
-    if (departamento !== 'all') r = r.filter((i) => i.departamento === departamento);
+      ? itensComCurva.filter((i) => i.quantidadeEstoque === 0)
+      : itensComCurva.filter((i) => i.quantidadeEstoque <= 0);
     if (fornecedor !== 'all') r = r.filter((i) => i.fornecedor === fornecedor);
     if (somenteComVenda) r = r.filter((i) => i.vendasPeriodo > 0);
     if (busca) {
       const t = busca.toLowerCase();
       r = r.filter((i) => i.descricao.toLowerCase().includes(t) || i.codItem.toLowerCase().includes(t));
     }
+    return r;
+  }, [itensComCurva, fornecedor, somenteComVenda, busca, modoEstoque]);
+
+  const filtrados = useMemo(() => {
+    let r = baseComum;
+    if (unidade !== 'all') r = r.filter((i) => i.codUnidade === unidade);
+    if (departamento !== 'all') r = r.filter((i) => i.departamento === departamento);
+    if (curva !== 'all') r = r.filter((i) => i.curva === curva);
     return [...r].sort((a, b) => b.perdaDia - a.perdaDia);
-  }, [items, unidade, departamento, fornecedor, busca, somenteComVenda, modoEstoque]);
+  }, [baseComum, unidade, departamento, curva]);
 
   const perdaTotalDia = filtrados.reduce((s, i) => s + i.perdaDia, 0);
   const comVenda = filtrados.filter((i) => i.vendasPeriodo > 0).length;
+
+  const comNegativos = modoEstoque === 'zerados_negativos';
+
+  // --- Painel por loja (ignora o próprio filtro de loja) ---
+  const linhasLoja = useMemo<LinhaResumo[]>(() => {
+    let base = baseComum;
+    if (departamento !== 'all') base = base.filter((i) => i.departamento === departamento);
+    if (curva !== 'all') base = base.filter((i) => i.curva === curva);
+    const lojas = [...new Set([...totais.map((t) => t.codUnidade), ...base.map((i) => i.codUnidade)])].sort();
+    return lojas.map((loja) => {
+      const t = totais.find((x) => x.codUnidade === loja);
+      const itens = base.filter((i) => i.codUnidade === loja);
+      return {
+        chave: loja,
+        rotulo: `Loja ${loja}`,
+        ativos: t?.itensAtivos ?? 0,
+        emRuptura: itens.length,
+        perda: itens.reduce((s, i) => s + i.perdaDia, 0),
+      };
+    });
+  }, [baseComum, totais, departamento, curva]);
+
+  // --- Painel por curva (ignora o próprio filtro de curva) ---
+  const linhasCurva = useMemo<LinhaResumo[]>(() => {
+    let base = baseComum;
+    if (unidade !== 'all') base = base.filter((i) => i.codUnidade === unidade);
+    if (departamento !== 'all') base = base.filter((i) => i.departamento === departamento);
+    const chaves = [...CURVAS as readonly string[], 'Sem curva'];
+    return chaves
+      .map((c) => {
+        const itens = base.filter((i) => i.curva === c);
+        const ativos = resumoCurva.find((r) => r.curva === c)?.itens ?? 0;
+        return {
+          chave: c,
+          rotulo: c,
+          ativos,
+          emRuptura: itens.length,
+          perda: itens.reduce((s, i) => s + i.perdaDia, 0),
+        };
+      })
+      .filter((l) => l.ativos > 0 || l.emRuptura > 0);
+  }, [baseComum, resumoCurva, unidade, departamento]);
+
+  // --- Painel por estrutura mercadológica (ignora o próprio filtro de departamento) ---
+  const linhasDepartamento = useMemo<LinhaResumo[]>(() => {
+    let base = baseComum;
+    if (unidade !== 'all') base = base.filter((i) => i.codUnidade === unidade);
+    if (curva !== 'all') base = base.filter((i) => i.curva === curva);
+    const ativosPorDepto = new Map<string, number>();
+    for (const t of totaisDepto) {
+      if (unidade !== 'all' && t.codUnidade !== unidade) continue;
+      ativosPorDepto.set(t.departamento, (ativosPorDepto.get(t.departamento) ?? 0) + t.itensAtivos);
+    }
+    const nomes = [...new Set([...ativosPorDepto.keys(), ...base.map((i) => i.departamento)])].sort();
+    return nomes
+      .map((nome) => {
+        const itens = base.filter((i) => i.departamento === nome);
+        return {
+          chave: nome,
+          rotulo: nome,
+          ativos: ativosPorDepto.get(nome) ?? 0,
+          emRuptura: itens.length,
+          perda: itens.reduce((s, i) => s + i.perdaDia, 0),
+        };
+      })
+      .sort((a, b) => b.perda - a.perda);
+  }, [baseComum, totaisDepto, unidade, curva]);
 
   // % de ruptura = itens em ruptura ÷ itens ativos (não bloqueados) da(s) loja(s) selecionada(s)
   const itensAtivos = useMemo(() => {
@@ -70,10 +166,10 @@ const Ruptura = () => {
   const rupturaBase = useMemo(() => {
     const base = unidade === 'all' ? totais : totais.filter((t) => t.codUnidade === unidade);
     return base.reduce(
-      (s, t) => s + t.itensZerados + (modoEstoque === 'zerados_negativos' ? t.itensNegativos : 0),
+      (s, t) => s + t.itensZerados + (comNegativos ? t.itensNegativos : 0),
       0,
     );
-  }, [totais, unidade, modoEstoque]);
+  }, [totais, unidade, comNegativos]);
 
   const percentualRuptura = itensAtivos > 0 ? (rupturaBase / itensAtivos) * 100 : null;
 
@@ -130,20 +226,6 @@ const Ruptura = () => {
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Buscar por código ou descrição" value={busca} onChange={(e) => setBusca(e.target.value)} className="pl-8" />
           </div>
-          <Select value={unidade} onValueChange={setUnidade}>
-            <SelectTrigger className="w-[150px]"><SelectValue placeholder="Unidade" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as lojas</SelectItem>
-              {unidades.map((u) => <SelectItem key={u} value={u}>Loja {u}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={departamento} onValueChange={setDepartamento}>
-            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Departamento" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os departamentos</SelectItem>
-              {departamentos.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-            </SelectContent>
-          </Select>
           <Select value={fornecedor} onValueChange={setFornecedor}>
             <SelectTrigger className="w-[200px]"><SelectValue placeholder="Fornecedor" /></SelectTrigger>
             <SelectContent>
@@ -170,15 +252,43 @@ const Ruptura = () => {
           <Button variant={somenteComVenda ? 'default' : 'outline'} size="sm" onClick={() => setSomenteComVenda((v) => !v)}>
             Só itens com venda
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => { setUnidade('all'); setDepartamento('all'); setFornecedor('all'); setBusca(''); setSomenteComVenda(true); setModoEstoque('zerados'); }}>
+          <Button variant="ghost" size="sm" onClick={() => { setUnidade('all'); setDepartamento('all'); setCurva('all'); setFornecedor('all'); setBusca(''); setSomenteComVenda(true); setModoEstoque('zerados'); }}>
             Limpar
           </Button>
+        </div>
+
+        <div className="grid gap-3 xl:grid-cols-3">
+          <PainelResumo
+            titulo="Por loja"
+            colunaRotulo="Loja"
+            linhas={linhasLoja}
+            selecionado={unidade}
+            onSelecionar={(k) => setUnidade(unidade === k ? 'all' : k)}
+            mostrarTotal
+          />
+          <PainelResumo
+            titulo="Por curva ABC"
+            colunaRotulo="Curva"
+            linhas={linhasCurva}
+            selecionado={curva}
+            onSelecionar={(k) => setCurva(curva === k ? 'all' : k)}
+            vazio="Curva ainda não calculada. Gere a curva em Comercial → Curva ABC."
+          />
+          <PainelResumo
+            titulo="Por estrutura mercadológica"
+            colunaRotulo="Departamento"
+            linhas={linhasDepartamento}
+            selecionado={departamento}
+            onSelecionar={(k) => setDepartamento(departamento === k ? 'all' : k)}
+            altura="max-h-[320px]"
+          />
         </div>
 
         {itensAtivos > 0 && (
           <p className="text-xs text-muted-foreground">
             Base do cálculo: {formatNumber(rupturaBase, 0)} itens em ruptura de {formatNumber(itensAtivos, 0)} itens ativos (não bloqueados)
             {unidade !== 'all' ? ` na loja ${unidade}` : ' na rede'}.
+            {' '}Nas tabelas acima, o % de ruptura usa os itens ativos do próprio recorte; na curva, a base é a quantidade de itens classificados naquela curva.
           </p>
         )}
 
@@ -191,6 +301,7 @@ const Ruptura = () => {
                   <th className="px-3 py-2 text-left">Código</th>
                   <th className="px-3 py-2 text-left">Descrição</th>
                   <th className="px-3 py-2 text-left">Departamento</th>
+                  <th className="px-3 py-2 text-center">Curva</th>
                   <th className="px-3 py-2 text-left">Fornecedor</th>
                   <th className="px-3 py-2 text-right">Estoque</th>
                   <th className="px-3 py-2 text-right">Vendas 90d (qtd)</th>
@@ -206,6 +317,7 @@ const Ruptura = () => {
                     <td className="px-3 py-2 whitespace-nowrap font-mono text-xs">{i.codItem}</td>
                     <td className="px-3 py-2">{i.descricao}</td>
                     <td className="px-3 py-2 text-muted-foreground">{i.departamento}</td>
+                    <td className="px-3 py-2 text-center font-medium">{i.curva}</td>
                     <td className="px-3 py-2 text-muted-foreground">{i.fornecedor}</td>
                     <td className="px-3 py-2 text-right">{formatNumber(i.quantidadeEstoque, 0)}</td>
                     <td className="px-3 py-2 text-right">{formatNumber(i.vendasPeriodo, 0)}</td>
@@ -215,7 +327,7 @@ const Ruptura = () => {
                   </tr>
                 ))}
                 {filtrados.length === 0 && (
-                  <tr><td colSpan={10} className="px-3 py-8 text-center text-muted-foreground">Nenhum item em ruptura com os filtros atuais.</td></tr>
+                  <tr><td colSpan={11} className="px-3 py-8 text-center text-muted-foreground">Nenhum item em ruptura com os filtros atuais.</td></tr>
                 )}
               </tbody>
             </table>

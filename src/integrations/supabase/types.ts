@@ -388,6 +388,74 @@ export type Database = {
         }
         Relationships: []
       }
+      erp_curva_abc: {
+        Row: {
+          cod_departamento: string
+          cod_item: string
+          cod_unidade: string
+          created_at: string
+          curva: string
+          data_referencia: string
+          departamento: string
+          descricao: string
+          dias_periodo: number
+          fornecedor: string
+          id: string
+          participacao: number
+          participacao_acumulada: number
+          posicao: number
+          quantidade_venda: number
+          sync_id: string | null
+          valor_venda: number
+        }
+        Insert: {
+          cod_departamento?: string
+          cod_item: string
+          cod_unidade: string
+          created_at?: string
+          curva?: string
+          data_referencia?: string
+          departamento?: string
+          descricao?: string
+          dias_periodo?: number
+          fornecedor?: string
+          id?: string
+          participacao?: number
+          participacao_acumulada?: number
+          posicao?: number
+          quantidade_venda?: number
+          sync_id?: string | null
+          valor_venda?: number
+        }
+        Update: {
+          cod_departamento?: string
+          cod_item?: string
+          cod_unidade?: string
+          created_at?: string
+          curva?: string
+          data_referencia?: string
+          departamento?: string
+          descricao?: string
+          dias_periodo?: number
+          fornecedor?: string
+          id?: string
+          participacao?: number
+          participacao_acumulada?: number
+          posicao?: number
+          quantidade_venda?: number
+          sync_id?: string | null
+          valor_venda?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "erp_curva_abc_sync_id_fkey"
+            columns: ["sync_id"]
+            isOneToOne: false
+            referencedRelation: "erp_sync_log"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       erp_estoque_snapshot: {
         Row: {
           cod_departamento: string
@@ -662,6 +730,56 @@ export type Database = {
           },
         ]
       }
+      erp_ruptura_totais_detalhe: {
+        Row: {
+          cod_departamento: string
+          cod_unidade: string
+          created_at: string
+          data_referencia: string
+          departamento: string
+          id: string
+          itens_ativos: number
+          itens_negativos: number
+          itens_zerados: number
+          sync_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          cod_departamento?: string
+          cod_unidade: string
+          created_at?: string
+          data_referencia?: string
+          departamento?: string
+          id?: string
+          itens_ativos?: number
+          itens_negativos?: number
+          itens_zerados?: number
+          sync_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cod_departamento?: string
+          cod_unidade?: string
+          created_at?: string
+          data_referencia?: string
+          departamento?: string
+          id?: string
+          itens_ativos?: number
+          itens_negativos?: number
+          itens_zerados?: number
+          sync_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "erp_ruptura_totais_detalhe_sync_id_fkey"
+            columns: ["sync_id"]
+            isOneToOne: false
+            referencedRelation: "erp_sync_log"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       erp_sync_log: {
         Row: {
           created_at: string
@@ -754,7 +872,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      curva_abc_departamentos: {
+        Args: { p_unidade?: string }
+        Returns: {
+          departamento: string
+          itens: number
+          valor: number
+        }[]
+      }
+      curva_abc_resumo: {
+        Args: { p_departamento?: string; p_unidade?: string }
+        Returns: {
+          curva: string
+          itens: number
+          valor: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

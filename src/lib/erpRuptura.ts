@@ -32,6 +32,27 @@ export interface RupturaTotal {
   itensNegativos: number;
 }
 
+export interface RupturaTotalDepto extends RupturaTotal {
+  codDepartamento: string;
+  departamento: string;
+}
+
+/** Itens ativos por loja + departamento — base do % de ruptura por estrutura. */
+export async function loadTotaisAtivosDepto(): Promise<RupturaTotalDepto[]> {
+  const { data, error } = await supabase
+    .from('erp_ruptura_totais_detalhe')
+    .select('cod_unidade, cod_departamento, departamento, itens_ativos, itens_zerados, itens_negativos');
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    codUnidade: r.cod_unidade,
+    codDepartamento: r.cod_departamento,
+    departamento: r.departamento || 'Sem departamento',
+    itensAtivos: Number(r.itens_ativos) || 0,
+    itensZerados: Number(r.itens_zerados) || 0,
+    itensNegativos: Number(r.itens_negativos) || 0,
+  }));
+}
+
 /** Total de itens ativos (não bloqueados) por loja — base do % de ruptura. */
 export async function loadTotaisAtivos(): Promise<RupturaTotal[]> {
   const { data, error } = await supabase
