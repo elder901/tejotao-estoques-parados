@@ -19,7 +19,9 @@ function sqlIndicadores(inicio: string, fim: string) {
     'SELECT json_agg(json_build_array(x.unid,x.mes,x.fat,x.custo,x.itens,x.dias))::text AS pacote FROM (' +
     "SELECT mprd_unid_codigo AS unid, to_char(mprd_datamvto, 'YYYY-MM') AS mes, " +
     'round(sum(mprd_valor)::numeric,2) AS fat, ' +
-    'round(sum(coalesce(mprd_ctmedio,0))::numeric,2) AS custo, ' +
+    // Custo = custo médio da mercadoria + impostos sobre a venda (ctvenda),
+    // que é o critério usado no fechamento oficial de indicadores.
+    'round(sum(coalesce(mprd_ctmedio,0) + coalesce(mprd_ctvenda,0))::numeric,2) AS custo, ' +
     'round(sum(mprd_qtde)::numeric,3) AS itens, ' +
     'count(DISTINCT mprd_datamvto) AS dias ' +
     "FROM {{fact_movprodd}} WHERE mprd_status = 'N' AND mprd_dcto_tipo IN ('EVD','EVL','EVP') " +
@@ -65,9 +67,13 @@ Deno.serve(async (req) => {
     }
 
     let anos: number[] = []
+    let mesInicio = 1
+    let mesFim = 12
     try {
       const corpo = await req.json()
       if (Array.isArray(corpo?.anos)) anos = corpo.anos.map(Number).filter(Boolean)
+      if (Number(corpo?.mesInicio)) mesInicio = Math.min(12, Math.max(1, Number(corpo.mesInicio)))
+      if (Number(corpo?.mesFim)) mesFim = Math.min(12, Math.max(mesInicio, Number(corpo.mesFim)))
     } catch { /* sem corpo */ }
     if (!anos.length) {
       const atual = new Date().getUTCFullYear()
@@ -78,9 +84,10 @@ Deno.serve(async (req) => {
     await initializeMcp(token)
 
     const hoje = new Date()
-    const linhas: any[] = []
+    let gravadas = 0
     for (const ano of anos) {
-      for (let mes = 1; mes <= 12; mes++) {
+      for (let mes = mesInicio; mes <= mesFim; mes++) {
+        const linhas: any[] = []
         const inicioDate = new Date(Date.UTC(ano, mes - 1, 1))
         if (inicioDate > hoje) break
         const inicio = inicioDate.toISOString().slice(0, 10)
@@ -96,7 +103,10 @@ Deno.serve(async (req) => {
           )) {
             cuponsMap.set(`${String(unid).trim()}|${m}`, Number(cupons) || 0)
           }
-        } catch { /* base de cupom pode não ter o período */ }
+        } catch (e) {
+          // base de cupom pode não cobrir o período — registra para diagnóstico
+          console.error(`Cupons indisponíveis em ${inicio}:`, e instanceof Error ? e.message : String(e))
+        }
         for (const [unid, m, fat, custo, itens, dias] of pacote) {
           linhas.push({
             cod_unidade: String(unid ?? '').trim(),
@@ -109,17 +119,18 @@ Deno.serve(async (req) => {
             atualizado_em: new Date().toISOString(),
           })
         }
+        if (linhas.length) {
+          // grava mês a mês para que uma interrupção não perca o progresso
+          const { error } = await admin
+            .from('erp_indicadores_mensal')
+            .upsert(linhas, { onConflict: 'cod_unidade,ano_mes' })
+          if (error) throw new Error(`Falha ao gravar indicadores: ${error.message}`)
+          gravadas += linhas.length
+        }
       }
     }
 
-    if (linhas.length) {
-      const { error } = await admin
-        .from('erp_indicadores_mensal')
-        .upsert(linhas, { onConflict: 'cod_unidade,ano_mes' })
-      if (error) throw new Error(`Falha ao gravar indicadores: ${error.message}`)
-    }
-
-    return json({ ok: true, anos, linhas: linhas.length })
+    return json({ ok: true, anos, mesInicio, mesFim, linhas: gravadas })
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     console.error('erp-indicadores error:', message)
