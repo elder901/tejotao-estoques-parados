@@ -68,12 +68,12 @@ const Ruptura = () => {
   }, [totais, unidade]);
 
   const rupturaBase = useMemo(() => {
-    let r = modoEstoque === 'zerados'
-      ? items.filter((i) => i.quantidadeEstoque === 0)
-      : items.filter((i) => i.quantidadeEstoque <= 0);
-    if (unidade !== 'all') r = r.filter((i) => i.codUnidade === unidade);
-    return r.length;
-  }, [items, unidade, modoEstoque]);
+    const base = unidade === 'all' ? totais : totais.filter((t) => t.codUnidade === unidade);
+    return base.reduce(
+      (s, t) => s + t.itensZerados + (modoEstoque === 'zerados_negativos' ? t.itensNegativos : 0),
+      0,
+    );
+  }, [totais, unidade, modoEstoque]);
 
   const percentualRuptura = itensAtivos > 0 ? (rupturaBase / itensAtivos) * 100 : null;
 
