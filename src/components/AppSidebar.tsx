@@ -30,12 +30,12 @@ type Item = { title: string; url: string; icon: React.ComponentType<{ className?
 
 const estoque: Item[] = [
   { title: "Estoques Parados", url: "/estoques-parados", icon: Boxes },
-  { title: "Ruptura", url: "/ruptura", icon: PackageX },
   { title: "Planos de Ação", url: "/planos", icon: ClipboardList },
 ];
 
 const comercial: Item[] = [
   { title: "Indicadores Gerais", url: "/indicadores", icon: BarChart3 },
+  { title: "Ruptura", url: "/ruptura", icon: PackageX },
 ];
 
 const kpis: Item[] = [
