@@ -316,6 +316,50 @@ export type Database = {
         }
         Relationships: []
       }
+      erp_ruptura_totais: {
+        Row: {
+          cod_unidade: string
+          created_at: string
+          data_referencia: string
+          id: string
+          itens_ativos: number
+          itens_negativos: number
+          itens_zerados: number
+          sync_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          cod_unidade: string
+          created_at?: string
+          data_referencia?: string
+          id?: string
+          itens_ativos?: number
+          itens_negativos?: number
+          itens_zerados?: number
+          sync_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cod_unidade?: string
+          created_at?: string
+          data_referencia?: string
+          id?: string
+          itens_ativos?: number
+          itens_negativos?: number
+          itens_zerados?: number
+          sync_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "erp_ruptura_totais_sync_id_fkey"
+            columns: ["sync_id"]
+            isOneToOne: false
+            referencedRelation: "erp_sync_log"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       erp_sync_log: {
         Row: {
           created_at: string
