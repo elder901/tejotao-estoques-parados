@@ -415,12 +415,12 @@ const Admin = () => {
         {/* Create User Form */}
         <div className="bg-card border rounded-lg p-5">
           <h2 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
-            <UserPlus className="h-4 w-4 text-accent" /> Criar Novo Comprador
+            <UserPlus className="h-4 w-4 text-accent" /> Criar Novo Usuário
           </h2>
-          <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+          <form onSubmit={handleCreate} className="grid grid-cols-1 sm:grid-cols-5 gap-3 items-end">
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Nome *</label>
-              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Nome do comprador" className="h-9 text-sm" />
+              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Nome do usuário" className="h-9 text-sm" />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Email *</label>
@@ -430,11 +430,24 @@ const Admin = () => {
               <label className="text-xs font-medium text-muted-foreground mb-1 block">Senha *</label>
               <Input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="h-9 text-sm" />
             </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Perfil *</label>
+              <Select value={role} onValueChange={v => setRole(v as 'business' | 'admin')}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="business">Business (consulta)</SelectItem>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Button type="submit" disabled={creating} className="h-9">
               {creating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <UserPlus className="h-4 w-4 mr-1" />}
               Criar
             </Button>
           </form>
+          <p className="text-xs text-muted-foreground mt-3">
+            Business acessa todos os indicadores e planos de ação, mas não vê a área de Administração.
+          </p>
         </div>
 
         {/* Users List */}
@@ -454,7 +467,7 @@ const Admin = () => {
               ) : users.map(u => (
                 <TableRow key={u.id}>
                   <TableCell className="text-sm font-medium">{u.name}</TableCell>
-                  <TableCell>{u.is_admin ? <Badge>Admin</Badge> : <Badge variant="secondary">Comprador</Badge>}</TableCell>
+                  <TableCell>{u.is_admin ? <Badge>Admin</Badge> : <Badge variant="secondary">Business</Badge>}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{new Date(u.created_at).toLocaleDateString('pt-BR')}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -464,6 +477,11 @@ const Admin = () => {
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="Alterar senha" onClick={() => { setPasswordUser(u); setNewPassword(''); }}>
                         <KeyRound className="h-3.5 w-3.5" />
                       </Button>
+                      {u.id !== user?.id && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Alterar perfil de acesso" onClick={() => setRoleUser(u)}>
+                          <UserCog className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                       {u.id !== user?.id && (
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Excluir" onClick={() => setDeleteUser(u)}>
                           <Trash2 className="h-3.5 w-3.5" />
