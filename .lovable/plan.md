@@ -1,73 +1,41 @@
-## Objetivo
+# Corrigir os indicadores (validação com SET/25)
 
-Trocar a origem dos dados (arquivos TXT) por leitura direta do ERP através da conexão MCP já autorizada, mantendo o upload atual funcionando até os números baterem, e criar uma camada de **governança das regras de negócio** (o ponto mais importante do seu pedido).
+Comparei a planilha de SET/25 com o que está gravado no banco. Faturamento e quantidade de itens batem; o resto tem quatro problemas reais.
 
-## Etapa 0 — Descoberta (antes de qualquer cálculo)
+## O que está certo
 
-Ainda não li o conteúdo do ERP, então o primeiro passo é factual, não suposição:
+| Indicador (Loja 01, SET/25) | Planilha | App |
+|---|---|---|
+| Faturamento | 7.577.121,39 | 7.577.160,37 (diferença de R$ 39) |
+| Quantidade de itens | 725.407 | 725.408 |
+| Tícket por item | 10,45 | 10,45 |
 
-1. Listar as ferramentas do MCP (`/erp` → "Ver dados disponíveis").
-2. Ler a tabela **dicionario** e registrar, para `movprodd`, `produn`, `produtos`, `departamentos`: nome real de cada coluna, chaves de ligação (cod_item, cod_unidade/loja, cod_departamento), o campo de tipo de movimento e o campo de quantidade.
-3. Confirmar com uma amostra pequena de linhas que EVD/EVL/EVP aparecem como esperado e que a quantidade de venda tem o sinal certo.
+## O que está errado
 
-Só depois disso escrevo as consultas definitivas. Se algo do dicionário divergir do esperado, eu te aviso antes de seguir.
+1. **Massa de margem / %MC** — a planilha traz margem de 2.159.258,10 (%MC 28,5%) para a Loja 01 em SET/25; o app calcula 2.647.094 (34,9%). O custo gravado está subestimado em cerca de R$ 488 mil no mês. A causa provável é a forma como o custo é somado no ERP (custo médio unitário x quantidade vs. valor já total da linha), mas isso ainda **não está confirmado** — a primeira etapa é descobrir no ERP qual expressão reproduz exatamente 5.417.863 de custo para a Loja 01 em SET/25.
+2. **Número de clientes / tícket médio** — todos os meses de 2025 estão com cupons = 0 no banco (2026 tem dados). A planilha mostra 86.409 clientes na Loja 01 em SET/25. Precisa verificar se a base de cupons do ERP cobre 2025 e, se não cobrir, contar os cupons a partir da movimentação de produtos.
+3. **Comparativo com o ano anterior (LY)** — não existe nenhum mês de 2024 no banco, então "mesmo mês do ano anterior" e o acumulado do ano anterior aparecem zerados. É preciso rodar a carga histórica de 2024.
+4. **Fat. médio dia e margem média dia no acumulado (YTD)** — o app usa o maior número de dias de um único mês (30) em vez do total de dias do período. A planilha usa 273 dias até SET/25. Hoje o YTD por dia sai cerca de 9x maior que o correto.
 
-## Etapa 1 — Regra de cálculo (o que será implementado)
+## Como corrigir
 
-```text
-vendas_90d(item, unidade) = soma da quantidade em movprodd
-                            onde tipo ∈ {EVD, EVL, EVP}
-                            e data >= hoje - 90 dias
+### Etapa 1 — Validar as fórmulas no ERP (antes de mexer no código)
+- Consultas de conferência para SET/25, Loja 01: testar variações do custo até bater com 5.417.863,29.
+- Verificar se a base de cupons tem movimento em 2025 e qual chave de cupom reproduz 86.409 clientes na Loja 01.
+- Conferir a diferença de R$ 39 no faturamento (provável arredondamento por linha em vez de por total).
 
-vmd (venda média diária) = vendas_90d / 90
-estoque_atual           = quantidade em produn (item + unidade)
-dias_de_estoque         = estoque_atual / vmd      (se vmd > 0)
-                        = "sem giro"                (se vmd = 0)
-valor_estoque           = estoque_atual x custo médio
-```
+### Etapa 2 — Ajustar a extração
+- Corrigir a expressão de custo conforme o resultado da Etapa 1.
+- Corrigir a contagem de cupons (ou trocar a origem, se a base de cupons não cobrir 2025).
+- Recarregar 2024, 2025 e 2026 com as fórmulas corrigidas.
 
-Dimensões (descrição do produto, fornecedor, departamento) vêm de `produtos` + `departamentos`.
+### Etapa 3 — Ajustar o cálculo da tela
+- Somar os dias do período em vez de pegar o maior valor, para que o acumulado use os dias acumulados (273 em SET/25).
+- Mês fechado continua usando os dias do próprio mês.
 
-## Etapa 2 — Governança das regras de negócio
+### Etapa 4 — Reconferir
+- Comparar de novo Lojas 01/02/03 de SET/25 contra a planilha nos 9 indicadores e nas três visões antes de encerrar.
 
-Esta é a espinha dorsal, em quatro camadas:
-
-**a) Regras como parâmetros no banco (editáveis, versionadas)**
-Uma tabela `regras_negocio` guarda cada parâmetro: janela de dias (90), tipos de movimento de venda (EVD/EVL/EVP), faixas de criticidade (0-30/30-60/60-90/90-120/120+), tamanho do ranking (Top 50), limite de "sem giro". Cada alteração cria uma **nova versão** com autor, data e motivo — nada é sobrescrito. Tela de administração para editar sem mexer em código, com histórico visível.
-
-**b) Uma única função no servidor como fonte da verdade**
-Todo cálculo passa por uma função de servidor (`erp-sync`) que lê os parâmetros da versão ativa. Nenhum cálculo duplicado no frontend. Cada linha calculada guarda **qual versão de regra a gerou**, então sempre dá para explicar um número antigo.
-
-**c) Memória persistente do projeto**
-As regras (fórmulas, tipos de movimento, janela, faixas) ficam registradas na memória do projeto, para que qualquer trabalho futuro respeite as mesmas definições sem você precisar repetir.
-
-**d) Skill + agente de análise**
-- Uma *skill* do projeto documenta o modelo de dados do ERP (o que o dicionário revelou) e o padrão correto de consulta, para evitar consultas inventadas.
-- Um **agente de análise** dentro do app responde em linguagem natural ("por que a loja 3 subiu?", "quais itens sem giro acima de R$ 5 mil?"), usando exclusivamente a função de servidor e os parâmetros vigentes — nunca fórmulas próprias.
-
-## Etapa 3 — Sincronização diária
-
-- Função `erp-sync` roda 1x por dia (agendada) e também sob demanda por um botão "Atualizar agora" no Admin.
-- Grava o resultado em tabelas do app: `erp_estoque_snapshot` (item, unidade, estoque, vmd, dias, valor, versão da regra, data) e `erp_sync_log` (início, fim, linhas, erros).
-- Dashboard passa a ler o snapshot: rápido e funciona mesmo se o ERP estiver fora do ar.
-
-## Etapa 4 — Validação lado a lado
-
-Uma tela de comparação mostra, para os mesmos itens, o número vindo do TXT e o vindo do ERP, com a diferença. O upload continua ativo até você aprovar. Depois disso, desligamos o upload em um passo separado.
-
-## Detalhes técnicos
-
-- Backend: novas tabelas `regras_negocio`, `regras_negocio_versoes`, `erp_estoque_snapshot`, `erp_sync_log`, todas com RLS (leitura para autenticados, escrita só admin/serviço).
-- `supabase/functions/erp-sync/index.ts`: reutiliza o proxy MCP existente em `erp-mcp` (refresh de token já implementado), pagina as consultas, calcula e grava em lote.
-- Agendamento via `pg_cron` + `pg_net`.
-- Frontend: `src/pages/Admin.tsx` ganha "Sincronizar agora" e status do último sync; nova tela de Regras; `src/lib/csvParser.ts` intocado nesta fase (fonte alternativa).
-- Agente de análise: AI SDK + Lovable AI Gateway, com ferramentas restritas ao snapshot e aos parâmetros.
-
-## Ordem de execução
-
-1. Descoberta do dicionário e das tabelas (relatório para você).
-2. Tabelas de regras + snapshot.
-3. Função `erp-sync` + agendamento.
-4. Tela de Regras (governança) + memória + skill.
-5. Dashboard lendo o snapshot + tela de comparação TXT × ERP.
-6. Agente de análise.
+## Observações técnicas
+- Arquivos afetados: `supabase/functions/erp-indicadores/index.ts` (custo, cupons, carga de 2024) e `src/lib/erpIndicadores.ts` (agregação de dias).
+- A tabela `erp_indicadores_mensal` é sobrescrita por upsert em `cod_unidade,ano_mes`; nenhum dado de plano de ação é afetado.
