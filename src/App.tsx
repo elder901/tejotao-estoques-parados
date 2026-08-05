@@ -14,6 +14,8 @@ import ErpSync from "./pages/ErpSync";
 import ErpConnect from "./pages/ErpConnect";
 import Ruptura from "./pages/Ruptura";
 import Indicadores from "./pages/Indicadores";
+import Analistas from "./pages/Analistas";
+import AnalistaComercial from "./pages/AnalistaComercial";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -42,6 +44,9 @@ const App = () => (
               <Route path="/planos" element={<ActionPlans />} />
               <Route path="/ruptura" element={<Ruptura />} />
               <Route path="/indicadores" element={<Indicadores />} />
+              <Route path="/analistas" element={<Analistas />} />
+              <Route path="/analistas/comercial" element={<AnalistaComercial />} />
+              <Route path="/analistas/comercial/:threadId" element={<AnalistaComercial />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/erp" element={<ErpConnect />} />
               <Route path="/erp-dados" element={<ErpSync />} />

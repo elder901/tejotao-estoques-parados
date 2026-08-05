@@ -11,6 +11,7 @@ import {
   Users,
   ShieldAlert,
   Gauge,
+  Bot,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -43,6 +44,10 @@ const kpis: Item[] = [
   { title: "Eficiência Operacional", url: "/indicadores", icon: Gauge, soon: true },
 ];
 
+const analistas: Item[] = [
+  { title: "Analista Comercial", url: "/analistas/comercial", icon: Bot },
+];
+
 const admin: Item[] = [
   { title: "Usuários", url: "/admin", icon: Users },
   { title: "Conexão ERP", url: "/erp", icon: PlugZap },
@@ -64,7 +69,7 @@ export function AppSidebar() {
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton
                 asChild
-                isActive={!item.soon && pathname === item.url}
+                isActive={!item.soon && (pathname === item.url || pathname.startsWith(`${item.url}/`))}
                 tooltip={item.title}
               >
                 {item.soon ? (
@@ -125,6 +130,7 @@ export function AppSidebar() {
 
         {renderGroup("Gestão de Estoque", estoque)}
         {renderGroup("Comercial", comercial)}
+        {renderGroup("Analistas de IA", analistas)}
         {renderGroup("KPIs", kpis)}
         {profile?.is_admin && renderGroup("Administração", admin)}
       </SidebarContent>
